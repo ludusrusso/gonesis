@@ -1,58 +1,36 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
-	"os"
 	"strings"
 
-	"gonesis/x/config"
+	"gonesis/homer"
 )
 
-// soulPath returns the path to .gonesis/SOUL.md relative to baseDir.
-func soulPath(baseDir string) (string, error) {
-	return config.ProjectFilePath(baseDir, "SOUL.md")
+// LoadSoul reads SOUL.md from the home Homer. Returns (content, err).
+// Returns homer.ErrNotFound when the file does not exist.
+func LoadSoul(h homer.Homer) (string, error) {
+	data, err := h.Get("SOUL.md")
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
-// LoadSoul reads SOUL.md from baseDir. Returns (content, exists, err).
-func LoadSoul(baseDir string) (string, bool, error) {
-	path, err := soulPath(baseDir)
-	if err != nil {
-		return "", false, err
-	}
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, fmt.Errorf("reading SOUL.md: %w", err)
-	}
-	return string(data), true, nil
-}
-
-// writeSoul creates .gonesis/ dir if needed and writes SOUL.md.
-func writeSoul(baseDir, content string) error {
-	if _, err := config.ProjectDir(baseDir); err != nil {
-		return fmt.Errorf("creating .gonesis dir: %w", err)
-	}
-	path, err := config.ProjectFilePath(baseDir, "SOUL.md")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+// writeSoul writes SOUL.md to the home Homer.
+func writeSoul(h homer.Homer, content string) error {
+	if err := h.Upsert("SOUL.md", []byte(content)); err != nil {
 		return fmt.Errorf("writing SOUL.md: %w", err)
 	}
 	return nil
 }
 
-// loadWorkspaceFile reads a file from .gonesis/ under baseDir.
+// loadWorkspaceFile reads a file from the workspace Homer.
 // Returns "" if the file does not exist.
-func loadWorkspaceFile(baseDir, filename string) (string, error) {
-	path, err := config.ProjectFilePath(baseDir, filename)
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+func loadWorkspaceFile(ws homer.Homer, filename string) (string, error) {
+	data, err := ws.Get(filename)
+	if errors.Is(err, homer.ErrNotFound) {
 		return "", nil
 	}
 	if err != nil {
@@ -63,7 +41,7 @@ func loadWorkspaceFile(baseDir, filename string) (string, error) {
 
 // BuildSystemPrompt assembles the full system prompt from the embedded agent
 // prompt, the runtime soul content, and an optional USER.md file.
-func BuildSystemPrompt(baseDir, soulContent string) string {
+func BuildSystemPrompt(workspace homer.Homer, soulContent string) string {
 	sections := []string{
 		fmt.Sprintf("# Agent\n\n%s", strings.TrimSpace(agentPrompt)),
 	}
@@ -72,7 +50,7 @@ func BuildSystemPrompt(baseDir, soulContent string) string {
 		sections = append(sections, fmt.Sprintf("# Agent Soul\n\n%s", s))
 	}
 
-	if userPrefs, err := loadWorkspaceFile(baseDir, "USER.md"); err == nil && strings.TrimSpace(userPrefs) != "" {
+	if userPrefs, err := loadWorkspaceFile(workspace, "USER.md"); err == nil && strings.TrimSpace(userPrefs) != "" {
 		sections = append(sections, fmt.Sprintf("# User Preferences\n\n%s", strings.TrimSpace(userPrefs)))
 	}
 

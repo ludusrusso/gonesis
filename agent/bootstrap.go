@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gonesis/chat"
+	"gonesis/homer"
 	"gonesis/provider"
 )
 
@@ -26,7 +27,7 @@ var writeSoulTool = provider.Tool{
 // BootstrapConfig returns a chat.Config for the bootstrap interview flow.
 // The executor writes SOUL.md and signals ErrDone; soulContent is populated
 // via the pointer so the caller can read it after tui.Run returns.
-func BootstrapConfig(ctx context.Context, p provider.Provider, baseDir string, soulContent *string) *chat.Config {
+func BootstrapConfig(ctx context.Context, p provider.Provider, home homer.Homer, soulContent *string) *chat.Config {
 	return &chat.Config{
 		Provider:     p,
 		SystemPrompt: bootstrapPrompt,
@@ -39,7 +40,7 @@ func BootstrapConfig(ctx context.Context, p provider.Provider, baseDir string, s
 			if content == "" {
 				return `{"error": "content must not be empty"}`, nil
 			}
-			if err := writeSoul(baseDir, content); err != nil {
+			if err := writeSoul(home, content); err != nil {
 				return "", fmt.Errorf("bootstrap write: %w", err)
 			}
 			*soulContent = content

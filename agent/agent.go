@@ -3,30 +3,33 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	"gonesis/chat"
+	"gonesis/homer"
 	"gonesis/provider"
 	"gonesis/tui"
 )
 
 // Config holds the configuration needed to run the agent.
 type Config struct {
-	Provider provider.Provider
-	BaseDir  string
+	Provider  provider.Provider
+	Home      homer.Homer
+	Workspace homer.Homer
 }
 
 // Run loads the soul (bootstrapping if needed) and starts the agent chat loop.
 func Run(ctx context.Context, cfg Config) error {
-	soulContent, exists, err := LoadSoul(cfg.BaseDir)
-	if err != nil {
+	soulContent, err := LoadSoul(cfg.Home)
+	if err != nil && !errors.Is(err, homer.ErrNotFound) {
 		return fmt.Errorf("loading soul: %w", err)
 	}
 
-	if !exists {
-		bootstrapCfg := BootstrapConfig(ctx, cfg.Provider, cfg.BaseDir, &soulContent)
+	if errors.Is(err, homer.ErrNotFound) {
+		bootstrapCfg := BootstrapConfig(ctx, cfg.Provider, cfg.Home, &soulContent)
 		if err := tui.Run(ctx, bootstrapCfg); err != nil {
 			return fmt.Errorf("bootstrap: %w", err)
 		}
@@ -37,7 +40,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	tools := []provider.Tool{}
 
-	systemPrompt := BuildSystemPrompt(cfg.BaseDir, soulContent)
+	systemPrompt := BuildSystemPrompt(cfg.Workspace, soulContent)
 	chatCfg := &chat.Config{
 		Provider:     cfg.Provider,
 		SystemPrompt: systemPrompt,

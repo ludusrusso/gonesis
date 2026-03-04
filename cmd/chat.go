@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gonesis/agent"
+	"gonesis/homer"
 	"gonesis/provider/gemini"
+	"gonesis/x/config"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,6 +46,20 @@ func runChat(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	globalHome, err := config.GlobalHome()
+	if err != nil {
+		return fmt.Errorf("global home: %w", err)
+	}
+	home, err := homer.New(globalHome)
+	if err != nil {
+		return fmt.Errorf("home homer: %w", err)
+	}
+
+	workspace, err := homer.New(filepath.Join(baseDir, config.DirName))
+	if err != nil {
+		return fmt.Errorf("workspace homer: %w", err)
+	}
+
 	ctx := context.Background()
 
 	p, err := gemini.New(ctx, apiKey, model)
@@ -51,7 +68,8 @@ func runChat(cmd *cobra.Command, args []string) error {
 	}
 
 	return agent.Run(ctx, agent.Config{
-		Provider: p,
-		BaseDir:  baseDir,
+		Provider:  p,
+		Home:      home,
+		Workspace: workspace,
 	})
 }
