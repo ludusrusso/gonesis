@@ -10,4 +10,5 @@ type Homer interface {
 	Get(name string) ([]byte, error)        // returns ErrNotFound if missing
 	Search(pattern string) ([]string, error) // glob, returns bare filenames
 	Upsert(name string, data []byte) error   // create or overwrite
+	Delete(name string) error                // returns ErrNotFound if missing
 }

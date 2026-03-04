@@ -6,14 +6,22 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
+
+	"gonesis/cron"
+	"gonesis/homer"
+	"gonesis/provider/gemini"
+	"gonesis/x/config"
 )
 
 // Config holds daemon configuration.
 type Config struct {
 	Version string
+	APIKey  string
+	Model   string
 }
 
 // Run is the main daemon loop. It manages the PID file, socket server, watchdog,
@@ -39,6 +47,10 @@ func Run(ctx context.Context, cfg Config) error {
 	startTime := time.Now()
 	wd := NewWatchdog(logger)
 
+	// --- Cron scheduler (declared early so status handler can access it) ---
+
+	var scheduler *cron.Scheduler
+
 	// --- Register command handlers ---
 
 	srv.Handle("ping", func(r *Request) (*Response, error) {
@@ -47,14 +59,18 @@ func Run(ctx context.Context, cfg Config) error {
 
 	srv.Handle("status", func(r *Request) (*Response, error) {
 		pid, _ := ReadPID()
+		payload := map[string]any{
+			"pid":      pid,
+			"uptime":   time.Since(startTime).String(),
+			"version":  cfg.Version,
+			"watchdog": wd.Status(),
+		}
+		if scheduler != nil {
+			payload["crons"] = scheduler.ListJobs()
+		}
 		return &Response{
-			OK: true,
-			Payload: map[string]any{
-				"pid":      pid,
-				"uptime":   time.Since(startTime).String(),
-				"version":  cfg.Version,
-				"watchdog": wd.Status(),
-			},
+			OK:      true,
+			Payload: payload,
 		}, nil
 	})
 
@@ -79,6 +95,53 @@ func Run(ctx context.Context, cfg Config) error {
 		}()
 		return &Response{OK: true, Payload: "update started"}, nil
 	})
+
+	// --- Cron scheduler initialization ---
+	if cfg.APIKey != "" {
+		globalHome, err := config.GlobalHome()
+		if err != nil {
+			return fmt.Errorf("global home: %w", err)
+		}
+
+		cronsHomer, err := homer.New(filepath.Join(globalHome, "crons"))
+		if err != nil {
+			return fmt.Errorf("crons homer: %w", err)
+		}
+
+		resultsHomer, err := homer.New(filepath.Join(globalHome, "cron-results"))
+		if err != nil {
+			return fmt.Errorf("cron-results homer: %w", err)
+		}
+
+		p, err := gemini.New(ctx, cfg.APIKey, cfg.Model)
+		if err != nil {
+			return fmt.Errorf("gemini provider: %w", err)
+		}
+
+		execCfg := &cron.ExecutorConfig{
+			Provider: p,
+			Results:  resultsHomer,
+			Logger:   logger,
+		}
+
+		scheduler, err = cron.NewScheduler(cronsHomer, execCfg, logger)
+		if err != nil {
+			return fmt.Errorf("cron scheduler: %w", err)
+		}
+
+		if err := scheduler.LoadAndStart(ctx); err != nil {
+			return fmt.Errorf("cron start: %w", err)
+		}
+
+		srv.Handle("cron-reload", func(r *Request) (*Response, error) {
+			if err := scheduler.Reload(ctx); err != nil {
+				return &Response{OK: false, Error: err.Error()}, nil
+			}
+			return &Response{OK: true, Payload: "cron jobs reloaded"}, nil
+		})
+	} else {
+		logger.Info("cron scheduler disabled (no API key configured)")
+	}
 
 	// --- Start socket server and watchdog ---
 
@@ -126,6 +189,11 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// --- Graceful shutdown ---
 
+	if scheduler != nil {
+		if err := scheduler.Stop(); err != nil {
+			logger.Error("cron scheduler stop error", "error", err)
+		}
+	}
 	waitWithTimeout(&wg, 10*time.Second)
 	logger.Info("daemon stopped")
 	return nil

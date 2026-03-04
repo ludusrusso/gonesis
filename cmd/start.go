@@ -10,6 +10,7 @@ import (
 	"gonesis/x/config"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -60,5 +61,9 @@ func runDaemon() error {
 	handler := slog.NewJSONHandler(f, &slog.HandlerOptions{Level: slog.LevelInfo})
 	slog.SetDefault(slog.New(handler))
 
-	return daemon.Run(context.Background(), daemon.Config{Version: Version})
+	return daemon.Run(context.Background(), daemon.Config{
+		Version: Version,
+		APIKey:  viper.GetString("gemini_api_key"),
+		Model:   viper.GetString("model"),
+	})
 }

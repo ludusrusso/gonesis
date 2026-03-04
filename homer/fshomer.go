@@ -42,3 +42,11 @@ func (h *FSHomer) Search(pattern string) ([]string, error) {
 func (h *FSHomer) Upsert(name string, data []byte) error {
 	return os.WriteFile(filepath.Join(h.dir, name), data, 0o644)
 }
+
+func (h *FSHomer) Delete(name string) error {
+	err := os.Remove(filepath.Join(h.dir, name))
+	if os.IsNotExist(err) {
+		return ErrNotFound
+	}
+	return err
+}

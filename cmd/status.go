@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	"gonesis/internal/daemon"
 
@@ -12,6 +13,21 @@ import (
 
 func init() {
 	rootCmd.AddCommand(statusCmd())
+}
+
+type statusPayload struct {
+	PID      int               `json:"pid"`
+	Uptime   string            `json:"uptime"`
+	Version  string            `json:"version"`
+	Watchdog map[string]int    `json:"watchdog"`
+	Crons    []statusCronEntry `json:"crons,omitempty"`
+}
+
+type statusCronEntry struct {
+	Name     string `json:"name"`
+	Schedule string `json:"schedule"`
+	NextRun  string `json:"next_run"`
+	LastRun  string `json:"last_run,omitempty"`
 }
 
 func statusCmd() *cobra.Command {
@@ -28,11 +44,36 @@ func statusCmd() *cobra.Command {
 				return fmt.Errorf("status error: %s", resp.Error)
 			}
 
-			data, err := json.MarshalIndent(resp.Payload, "", "  ")
+			// Re-marshal/unmarshal to get typed struct
+			raw, err := json.Marshal(resp.Payload)
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(data))
+			var status statusPayload
+			if err := json.Unmarshal(raw, &status); err != nil {
+				return err
+			}
+
+			fmt.Printf("PID:      %d\n", status.PID)
+			fmt.Printf("Uptime:   %s\n", status.Uptime)
+			fmt.Printf("Version:  %s\n", status.Version)
+
+			if len(status.Crons) == 0 {
+				fmt.Println("\nNo cron jobs scheduled.")
+			} else {
+				fmt.Printf("\nCron jobs (%d):\n", len(status.Crons))
+				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+				fmt.Fprintln(w, "  NAME\tSCHEDULE\tNEXT RUN\tLAST RUN")
+				for _, c := range status.Crons {
+					lastRun := "-"
+					if c.LastRun != "" {
+						lastRun = c.LastRun
+					}
+					fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", c.Name, c.Schedule, c.NextRun, lastRun)
+				}
+				w.Flush()
+			}
+
 			return nil
 		},
 	}

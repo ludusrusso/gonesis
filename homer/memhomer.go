@@ -42,3 +42,11 @@ func (m *MemHomer) Upsert(name string, data []byte) error {
 	m.Files[name] = data
 	return nil
 }
+
+func (m *MemHomer) Delete(name string) error {
+	if _, ok := m.Files[name]; !ok {
+		return ErrNotFound
+	}
+	delete(m.Files, name)
+	return nil
+}

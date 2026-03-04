@@ -65,6 +65,39 @@ func RunHomerSpec(t *testing.T, h Homer) {
 		}
 	})
 
+	t.Run("Delete missing key returns ErrNotFound", func(t *testing.T) {
+		err := h.Delete("nonexistent")
+		if err != ErrNotFound {
+			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
+
+	t.Run("Delete existing key removes it", func(t *testing.T) {
+		if err := h.Upsert("to-delete.txt", []byte("bye")); err != nil {
+			t.Fatalf("Upsert failed: %v", err)
+		}
+		if err := h.Delete("to-delete.txt"); err != nil {
+			t.Fatalf("Delete failed: %v", err)
+		}
+		_, err := h.Get("to-delete.txt")
+		if err != ErrNotFound {
+			t.Fatalf("expected ErrNotFound after delete, got %v", err)
+		}
+	})
+
+	t.Run("Delete is idempotent after first call", func(t *testing.T) {
+		if err := h.Upsert("once.txt", []byte("data")); err != nil {
+			t.Fatalf("Upsert failed: %v", err)
+		}
+		if err := h.Delete("once.txt"); err != nil {
+			t.Fatalf("Delete failed: %v", err)
+		}
+		err := h.Delete("once.txt")
+		if err != ErrNotFound {
+			t.Fatalf("expected ErrNotFound on second delete, got %v", err)
+		}
+	})
+
 	t.Run("Search multiple matches returns all", func(t *testing.T) {
 		if err := h.Upsert("a.txt", []byte("a")); err != nil {
 			t.Fatalf("Upsert failed: %v", err)
