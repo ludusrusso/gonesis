@@ -14,6 +14,7 @@ import (
 var Version = "dev"
 
 var cfgFile string
+var debugFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "gonesis",

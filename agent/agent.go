@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"gonesis/chat"
 	"gonesis/debug"
 	"gonesis/homer"
 	"gonesis/provider"
 	"gonesis/provider/tool"
-	"gonesis/tui"
+	"gonesis/session"
 )
 
 // Config holds the configuration needed to run the agent.
@@ -20,74 +19,75 @@ type Config struct {
 	Home       homer.Homer
 	Workspace  homer.Homer
 	SkillsHome homer.Homer
+	HomeDir    string // absolute path to ~/.gonesis, used as bash tool working directory
 	Debug      bool
 }
 
-// Run loads the soul (bootstrapping if needed) and starts the agent chat loop.
-func Run(ctx context.Context, cfg Config) error {
+// Prepare setup the agent environment, loads soul/memory and returns a session configuration.
+func Prepare(ctx context.Context, cfg Config) (*session.Config, *debug.Logger, error) {
 	var dbg *debug.Logger
 	if cfg.Debug {
 		var err error
 		dbg, err = debug.New()
 		if err != nil {
-			return fmt.Errorf("debug logger: %w", err)
+			return nil, nil, fmt.Errorf("debug logger: %w", err)
 		}
-		defer dbg.Close()
 	}
 
 	soulContent, err := LoadSoul(cfg.Home)
 	if err != nil && !errors.Is(err, homer.ErrNotFound) {
-		return fmt.Errorf("loading soul: %w", err)
+		return nil, dbg, fmt.Errorf("loading soul: %w", err)
 	}
 
 	memoryContent, memErr := LoadMemory(cfg.Home)
 	if memErr != nil && !errors.Is(memErr, homer.ErrNotFound) {
-		return fmt.Errorf("loading memory: %w", memErr)
+		return nil, dbg, fmt.Errorf("loading memory: %w", memErr)
 	}
 
 	if errors.Is(err, homer.ErrNotFound) {
-		bootstrapCfg := BootstrapConfig(ctx, cfg.Provider, cfg.Home, &soulContent)
-		bootstrapCfg.Debug = dbg
-		if err := tui.Run(ctx, bootstrapCfg); err != nil {
-			return fmt.Errorf("bootstrap: %w", err)
-		}
-		if soulContent == "" {
-			return fmt.Errorf("bootstrap did not produce a soul")
-		}
+		// Bootstrap needs to run in the old direct way.
+		// For now, skip bootstrap when running under daemon.
+		// The daemon requires a pre-existing soul.
+		return nil, dbg, fmt.Errorf("soul not found: run 'gonesis chat' directly to bootstrap your agent first")
 	}
 
-	tools := loadTools(cfg.SkillsHome)
-
+	tools := loadTools(cfg.SkillsHome, cfg.HomeDir)
 	systemPrompt := BuildSystemPrompt(cfg.Workspace, soulContent, memoryContent)
-	dbg.SystemPrompt(systemPrompt)
+	if dbg != nil {
+		dbg.SystemPrompt(systemPrompt)
+	}
 
-	var finalMessages []provider.Message
-	chatCfg := &chat.Config{
+	chatCfg := &session.Config{
 		Provider:     cfg.Provider,
 		SystemPrompt: systemPrompt,
 		Tools:        tools.Tools(),
 		Executor:     tools.Executor(),
 		WelcomeText:  "Agent ready.",
 		Debug:        dbg,
-		OnDone: func(messages []provider.Message) {
-			finalMessages = messages
-		},
-	}
-	tuiErr := tui.Run(ctx, chatCfg)
-
-	if len(finalMessages) > 0 {
-		memCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, finalMessages, memoryContent); err != nil {
-			dbg.Error(fmt.Errorf("updating memory: %w", err))
-		}
 	}
 
-	return tuiErr
+	return chatCfg, dbg, nil
 }
 
-func loadTools(home homer.Homer) *tool.Registry {
-	tools := []tool.Tool{getCurrentTimeTool, bashTool}
+// Finalize updates the agent's memory based on the conversation history.
+func Finalize(ctx context.Context, cfg Config, messages []provider.Message) error {
+	if len(messages) == 0 {
+		return nil
+	}
+
+	memoryContent, err := LoadMemory(cfg.Home)
+	if err != nil && !errors.Is(err, homer.ErrNotFound) {
+		return err
+	}
+
+	memCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	return RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, messages, memoryContent)
+}
+
+func loadTools(home homer.Homer, homeDir string) *tool.Registry {
+	tools := []tool.Tool{getCurrentTimeTool, newBashTool(homeDir)}
 	if home != nil {
 		tools = append(tools, newLoadSkillTool(home))
 	}

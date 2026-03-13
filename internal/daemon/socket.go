@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -17,8 +18,10 @@ type CommandHandler func(*Request) (*Response, error)
 type SocketServer struct {
 	listener net.Listener
 	handlers map[string]CommandHandler
+	sessions *SessionManager
 	logger   *slog.Logger
 	path     string
+	ctx      context.Context
 	wg       sync.WaitGroup
 }
 
@@ -49,6 +52,11 @@ func NewSocketServer(logger *slog.Logger) (*SocketServer, error) {
 	}, nil
 }
 
+// SetSessions configures the session manager for NDJSON chat connections.
+func (s *SocketServer) SetSessions(sm *SessionManager) {
+	s.sessions = sm
+}
+
 // Handle registers a handler for the given command name.
 func (s *SocketServer) Handle(cmd string, h CommandHandler) {
 	s.handlers[cmd] = h
@@ -56,6 +64,8 @@ func (s *SocketServer) Handle(cmd string, h CommandHandler) {
 
 // Serve accepts connections until ctx is cancelled.
 func (s *SocketServer) Serve(ctx context.Context) {
+	s.ctx = ctx
+
 	go func() {
 		<-ctx.Done()
 		s.listener.Close()
@@ -73,7 +83,7 @@ func (s *SocketServer) Serve(ctx context.Context) {
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
-			s.handleConnection(conn)
+			s.handleConnection(ctx, conn)
 		}()
 	}
 }
@@ -85,12 +95,50 @@ func (s *SocketServer) Close() {
 	os.Remove(s.path)
 }
 
-func (s *SocketServer) handleConnection(conn net.Conn) {
+// handleConnection reads the first JSON message to determine the protocol:
+// - If it has a "type" field starting with "session.", it's a NDJSON chat connection.
+// - Otherwise, it's a legacy command request.
+func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
+	// Peek at the first JSON object to decide the protocol.
+	decoder := json.NewDecoder(conn)
+
+	var raw json.RawMessage
+	if err := decoder.Decode(&raw); err != nil {
+		s.logger.Error("decode first message", "error", err)
+		return
+	}
+
+	// Try to detect NDJSON chat protocol by looking for "type" field.
+	var probe struct {
+		Type string `json:"type"`
+		Cmd  string `json:"cmd"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		s.logger.Error("unmarshal probe", "error", err)
+		return
+	}
+
+	if strings.HasPrefix(probe.Type, "session.") || probe.Type == "message" {
+		// NDJSON chat protocol.
+		if s.sessions == nil {
+			encoder := json.NewEncoder(conn)
+			encoder.Encode(ChatEvent{Type: "error", Message: "session manager not available"})
+			return
+		}
+		var chatReq ChatRequest
+		json.Unmarshal(raw, &chatReq)
+		// handleChatConnection takes over the connection (long-lived).
+		// We create a new decoder from the conn since the old one already consumed the buffered data.
+		s.handleChatConnection(conn, &chatReq, s.sessions, s.logger)
+		return
+	}
+
+	// Legacy command protocol.
 	var req Request
-	if err := json.NewDecoder(conn).Decode(&req); err != nil {
-		s.logger.Error("decode request", "error", err)
+	if err := json.Unmarshal(raw, &req); err != nil {
+		s.logger.Error("unmarshal legacy request", "error", err)
 		return
 	}
 

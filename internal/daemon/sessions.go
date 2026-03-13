@@ -1,0 +1,153 @@
+package daemon
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"gonesis/agent"
+	"gonesis/provider"
+	"gonesis/session"
+
+	"github.com/google/uuid"
+)
+
+// SessionManager owns all chat sessions and delegates to session.RunTurnStream.
+type SessionManager struct {
+	agentCfg agent.Config
+	chatCfg  *session.Config
+	sessions map[string]*ManagedSession
+	mu       sync.RWMutex
+}
+
+// ManagedSession holds the state for a single chat session.
+type ManagedSession struct {
+	ID        string
+	Messages  []provider.Message
+	mu        sync.Mutex
+	createdAt time.Time
+}
+
+// NewSessionManager calls agent.Prepare to build the shared session.Config.
+func NewSessionManager(ctx context.Context, agentCfg agent.Config) (*SessionManager, error) {
+	chatCfg, dbg, err := agent.Prepare(ctx, agentCfg)
+	if err != nil {
+		return nil, fmt.Errorf("agent prepare: %w", err)
+	}
+	// The debug logger is owned by the session manager lifetime.
+	// We don't close it here; it stays open for the daemon's lifetime.
+	_ = dbg
+
+	return &SessionManager{
+		agentCfg: agentCfg,
+		chatCfg:  chatCfg,
+		sessions: make(map[string]*ManagedSession),
+	}, nil
+}
+
+// Create creates a new session with a unique ID.
+func (sm *SessionManager) Create() *ManagedSession {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	sess := &ManagedSession{
+		ID:        uuid.New().String(),
+		Messages:  append([]provider.Message{}, sm.chatCfg.InitialMessages...),
+		createdAt: time.Now(),
+	}
+	sm.sessions[sess.ID] = sess
+	return sess
+}
+
+// Get returns the session with the given ID, or nil.
+func (sm *SessionManager) Get(id string) *ManagedSession {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.sessions[id]
+}
+
+// Close finalizes the session (updates memory) and removes it.
+func (sm *SessionManager) Close(ctx context.Context, id string) {
+	sm.mu.Lock()
+	sess, ok := sm.sessions[id]
+	if ok {
+		delete(sm.sessions, id)
+	}
+	sm.mu.Unlock()
+
+	if !ok || len(sess.Messages) == 0 {
+		return
+	}
+
+	// Best-effort finalize (update memory).
+	_ = agent.Finalize(ctx, sm.agentCfg, sess.Messages)
+}
+
+// WelcomeText returns the configured welcome text.
+func (sm *SessionManager) WelcomeText() string {
+	return sm.chatCfg.WelcomeText
+}
+
+// OnChunkFunc is called for each streaming text chunk.
+type OnChunkFunc func(chunk string)
+
+// OnToolCallFunc is called when the agent invokes a tool.
+type OnToolCallFunc func(name string, args string)
+
+// RunTurnStream runs a single conversational turn with streaming callbacks.
+// It locks the session for the duration.
+func (sm *SessionManager) RunTurnStream(ctx context.Context, id string, input string, onChunk OnChunkFunc, onToolCall OnToolCallFunc) (string, error) {
+	sess := sm.Get(id)
+	if sess == nil {
+		return "", fmt.Errorf("session not found: %s", id)
+	}
+
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+
+	// Wire up the tool call callback on the shared config.
+	// We make a shallow copy so we don't mutate the shared config.
+	cfg := *sm.chatCfg
+	cfg.OnToolCall = func(tc provider.ToolCall) {
+		if onToolCall != nil {
+			onToolCall(tc.Name, formatToolArgs(tc.Args, 100))
+		}
+	}
+
+	chunkCb := func(chunk string) {
+		if onChunk != nil {
+			onChunk(chunk)
+		}
+	}
+
+	updated, resp, err := session.RunTurnStream(ctx, &cfg, sess.Messages, input, chunkCb)
+	if err != nil {
+		return "", err
+	}
+
+	sess.Messages = updated
+	return resp.Message.Content, nil
+}
+
+// formatToolArgs formats a tool call's args map into a compact string.
+func formatToolArgs(args map[string]any, maxLen int) string {
+	if len(args) == 0 {
+		return ""
+	}
+	var parts []string
+	for k, v := range args {
+		parts = append(parts, fmt.Sprintf("%s: %v", k, v))
+	}
+	result := ""
+	for i, p := range parts {
+		if i > 0 {
+			result += ", "
+		}
+		result += p
+	}
+	if len(result) > maxLen {
+		result = result[:maxLen] + "..."
+	}
+	return result
+}

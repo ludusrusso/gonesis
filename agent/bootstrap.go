@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"gonesis/chat"
 	"gonesis/homer"
 	"gonesis/provider"
 	"gonesis/provider/tool"
+	"gonesis/session"
 )
 
 // WriteSoulInput is the input for the write_soul tool.
@@ -20,10 +20,10 @@ type WriteSoulOutput struct {
 	Status string `json:"status"`
 }
 
-// BootstrapConfig returns a chat.Config for the bootstrap interview flow.
+// BootstrapConfig returns a session.Config for the bootstrap interview flow.
 // The executor writes SOUL.md and signals ErrDone; soulContent is populated
 // via the pointer so the caller can read it after tui.Run returns.
-func BootstrapConfig(ctx context.Context, p provider.Provider, home homer.Homer, soulContent *string) *chat.Config {
+func BootstrapConfig(ctx context.Context, p provider.Provider, home homer.Homer, soulContent *string) *session.Config {
 	writeSoulTool := tool.NewTool("write_soul",
 		"Write your SOUL.md -- commit your identity to memory. Call this when you understand who you are.",
 		func(ctx context.Context, in WriteSoulInput) (WriteSoulOutput, error) {
@@ -40,7 +40,7 @@ func BootstrapConfig(ctx context.Context, p provider.Provider, home homer.Homer,
 
 	registry := tool.NewRegistry(writeSoulTool)
 
-	return &chat.Config{
+	return &session.Config{
 		Provider:     p,
 		SystemPrompt: bootstrapPrompt,
 		Tools:        registry.Tools(),

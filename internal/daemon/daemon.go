@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"gonesis/agent"
 	"gonesis/cron"
 	"gonesis/homer"
 	"gonesis/provider/gemini"
@@ -46,6 +47,17 @@ func Run(ctx context.Context, cfg Config) error {
 
 	startTime := time.Now()
 	wd := NewWatchdog(logger)
+
+	// --- Session manager initialization ---
+	if cfg.APIKey != "" {
+		sm, err := initSessionManager(ctx, cfg, logger)
+		if err != nil {
+			logger.Warn("session manager disabled", "error", err)
+		} else {
+			srv.SetSessions(sm)
+			logger.Info("session manager ready")
+		}
+	}
 
 	// --- Cron scheduler (declared early so status handler can access it) ---
 
@@ -197,6 +209,39 @@ func Run(ctx context.Context, cfg Config) error {
 	waitWithTimeout(&wg, 10*time.Second)
 	logger.Info("daemon stopped")
 	return nil
+}
+
+// initSessionManager creates the agent config and initializes the session manager.
+func initSessionManager(ctx context.Context, cfg Config, logger *slog.Logger) (*SessionManager, error) {
+	globalHome, err := config.GlobalHome()
+	if err != nil {
+		return nil, fmt.Errorf("global home: %w", err)
+	}
+
+	home, err := homer.New(globalHome)
+	if err != nil {
+		return nil, fmt.Errorf("home homer: %w", err)
+	}
+
+	p, err := gemini.New(ctx, cfg.APIKey, cfg.Model)
+	if err != nil {
+		return nil, fmt.Errorf("gemini provider: %w", err)
+	}
+
+	skillsHome, err := homer.New(filepath.Join(globalHome, "skills"))
+	if err != nil {
+		return nil, fmt.Errorf("skills homer: %w", err)
+	}
+
+	agentCfg := agent.Config{
+		Provider:   p,
+		Home:       home,
+		Workspace:  home, // daemon uses global home as workspace
+		SkillsHome: skillsHome,
+		HomeDir:    globalHome,
+	}
+
+	return NewSessionManager(ctx, agentCfg)
 }
 
 func waitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) {
