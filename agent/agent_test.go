@@ -110,7 +110,7 @@ func TestBootstrapConfig_UnknownTool(t *testing.T) {
 func TestBuildSystemPrompt_WithSoul(t *testing.T) {
 	ws := homer.NewMem()
 
-	prompt := BuildSystemPrompt(ws, "I am a test soul.")
+	prompt := BuildSystemPrompt(ws, "I am a test soul.", "")
 	if !contains(prompt, "# Agent Soul") {
 		t.Fatal("expected soul section in prompt")
 	}
@@ -123,7 +123,7 @@ func TestBuildSystemPrompt_WithUserPrefs(t *testing.T) {
 	ws := homer.NewMem()
 	ws.Files["USER.md"] = []byte("Prefer Go.")
 
-	prompt := BuildSystemPrompt(ws, "soul")
+	prompt := BuildSystemPrompt(ws, "soul", "")
 	if !contains(prompt, "# User Preferences") {
 		t.Fatal("expected user preferences section in prompt")
 	}
@@ -135,7 +135,7 @@ func TestBuildSystemPrompt_WithUserPrefs(t *testing.T) {
 func TestBuildSystemPrompt_NoUserPrefs(t *testing.T) {
 	ws := homer.NewMem()
 
-	prompt := BuildSystemPrompt(ws, "soul")
+	prompt := BuildSystemPrompt(ws, "soul", "")
 	if contains(prompt, "# User Preferences") {
 		t.Fatal("did not expect user preferences section in prompt")
 	}

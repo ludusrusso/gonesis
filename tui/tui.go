@@ -107,6 +107,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			m.quitting = true
+			if m.cfg.OnDone != nil {
+				m.cfg.OnDone(m.messages)
+			}
 			return m, tea.Quit
 		case tea.KeyEnter:
 			if m.loading {

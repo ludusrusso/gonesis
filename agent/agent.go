@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gonesis/chat"
 	"gonesis/debug"
@@ -39,6 +40,11 @@ func Run(ctx context.Context, cfg Config) error {
 		return fmt.Errorf("loading soul: %w", err)
 	}
 
+	memoryContent, memErr := LoadMemory(cfg.Home)
+	if memErr != nil && !errors.Is(memErr, homer.ErrNotFound) {
+		return fmt.Errorf("loading memory: %w", memErr)
+	}
+
 	if errors.Is(err, homer.ErrNotFound) {
 		bootstrapCfg := BootstrapConfig(ctx, cfg.Provider, cfg.Home, &soulContent)
 		bootstrapCfg.Debug = dbg
@@ -50,22 +56,39 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 	}
 
-	tools := []tool.Tool{getCurrentTimeTool}
-	if cfg.SkillsHome != nil {
-		tools = append(tools, newLoadSkillTool(cfg.SkillsHome))
-	}
-	registry := tool.NewRegistry(tools...)
+	tools := loadTools(cfg.SkillsHome)
 
-	systemPrompt := BuildSystemPrompt(cfg.Workspace, soulContent)
+	systemPrompt := BuildSystemPrompt(cfg.Workspace, soulContent, memoryContent)
 	dbg.SystemPrompt(systemPrompt)
 
+	var finalMessages []provider.Message
 	chatCfg := &chat.Config{
 		Provider:     cfg.Provider,
 		SystemPrompt: systemPrompt,
-		Tools:        registry.Tools(),
-		Executor:     registry.Executor(),
+		Tools:        tools.Tools(),
+		Executor:     tools.Executor(),
 		WelcomeText:  "Agent ready.",
 		Debug:        dbg,
+		OnDone: func(messages []provider.Message) {
+			finalMessages = messages
+		},
 	}
-	return tui.Run(ctx, chatCfg)
+	tuiErr := tui.Run(ctx, chatCfg)
+
+	if len(finalMessages) > 0 {
+		memCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		fmt.Println("Updating memory...")
+		_ = RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, finalMessages, memoryContent)
+	}
+
+	return tuiErr
+}
+
+func loadTools(home homer.Homer) *tool.Registry {
+	tools := []tool.Tool{getCurrentTimeTool}
+	if home != nil {
+		tools = append(tools, newLoadSkillTool(home))
+	}
+	return tool.NewRegistry(tools...)
 }
