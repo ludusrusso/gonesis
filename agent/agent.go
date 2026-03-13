@@ -78,8 +78,9 @@ func Run(ctx context.Context, cfg Config) error {
 	if len(finalMessages) > 0 {
 		memCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		fmt.Println("Updating memory...")
-		_ = RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, finalMessages, memoryContent)
+		if err := RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, finalMessages, memoryContent); err != nil {
+			dbg.Error(fmt.Errorf("updating memory: %w", err))
+		}
 	}
 
 	return tuiErr

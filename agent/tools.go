@@ -65,10 +65,7 @@ func newLoadSkillTool(skillsHome homer.Homer) tool.Tool {
 		func(ctx context.Context, in LoadSkillInput) (LoadSkillOutput, error) {
 			switch in.Action {
 			case "list":
-				skills, errs := skill.LoadAll(skillsHome)
-				for _, e := range errs {
-					fmt.Printf("warning: %v\n", e)
-				}
+				skills, _ := skill.LoadAll(skillsHome)
 				summaries := make([]SkillSummary, 0, len(skills))
 				for _, s := range skills {
 					summaries = append(summaries, SkillSummary{
