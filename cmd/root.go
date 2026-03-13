@@ -42,7 +42,6 @@ func initConfig() {
 	} else {
 		viper.SetConfigName("gonesis")
 		viper.SetConfigType("yaml")
-		viper.AddConfigPath(".")
 
 		if home, err := config.GlobalHome(); err == nil {
 			viper.AddConfigPath(home)
