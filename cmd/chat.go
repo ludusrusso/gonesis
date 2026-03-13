@@ -67,9 +67,15 @@ func runChat(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	skillsHome, err := homer.New(filepath.Join(globalHome, "skills"))
+	if err != nil {
+		return fmt.Errorf("skills homer: %w", err)
+	}
+
 	return agent.Run(ctx, agent.Config{
-		Provider:  p,
-		Home:      home,
-		Workspace: workspace,
+		Provider:   p,
+		Home:       home,
+		Workspace:  workspace,
+		SkillsHome: skillsHome,
 	})
 }
