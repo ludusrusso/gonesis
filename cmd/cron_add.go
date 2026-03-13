@@ -62,13 +62,13 @@ var (
 )
 
 type cronAddModel struct {
-	step      cronAddStep
+	prompt    textarea.Model
+	err       error
 	name      textinput.Model
 	schedule  textinput.Model
-	prompt    textarea.Model
+	step      cronAddStep
 	cancelled bool
 	saved     bool
-	err       error
 }
 
 func newCronAddModel() cronAddModel {
@@ -270,9 +270,9 @@ func (m cronAddModel) View() string {
 	// Step 4: Confirm
 	b.WriteString(titleStyle.Render("Review:"))
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("  Name:     %s\n", m.name.Value()))
-	b.WriteString(fmt.Sprintf("  Schedule: %s\n", m.schedule.Value()))
-	b.WriteString(fmt.Sprintf("  Prompt:   %s\n", m.prompt.Value()))
+	fmt.Fprintf(&b, "  Name:     %s\n", m.name.Value())
+	fmt.Fprintf(&b, "  Schedule: %s\n", m.schedule.Value())
+	fmt.Fprintf(&b, "  Prompt:   %s\n", m.prompt.Value())
 	b.WriteString("\n")
 	b.WriteString(labelStyle.Render("Enter to save | Esc to cancel"))
 

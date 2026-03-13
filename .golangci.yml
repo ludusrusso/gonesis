@@ -1,0 +1,83 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - gosec
+    - gocritic
+    - errorlint
+    - revive
+    - misspell
+    - unconvert
+    - unparam
+    - prealloc
+    - whitespace
+
+  exclusions:
+    rules:
+      - linters: [errcheck, gosec]
+        path: _test\.go
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - (*net.UnixListener).Close
+        - (*text/tabwriter.Writer).Flush
+        - os.Remove
+        - (*os.Process).Release
+        - (*encoding/json.Encoder).Encode
+        - (*github.com/spf13/viper.Viper).BindEnv
+        - github.com/spf13/viper.BindEnv
+        - github.com/spf13/viper.ReadInConfig
+        - (*github.com/spf13/pflag.FlagSet).MarkHidden
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: var-naming
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      disabled-checks:
+        - hugeParam
+        - unnamedResult
+    gosec:
+      excludes:
+        - G107
+        - G204
+        - G301
+        - G302
+        - G304
+        - G306
+        - G702
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true

@@ -15,10 +15,10 @@ type CommandHandler func(*Request) (*Response, error)
 
 // SocketServer listens on a Unix domain socket and dispatches commands.
 type SocketServer struct {
-	path     string
 	listener net.Listener
 	handlers map[string]CommandHandler
 	logger   *slog.Logger
+	path     string
 	wg       sync.WaitGroup
 }
 

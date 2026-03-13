@@ -14,22 +14,22 @@ const (
 type Message struct {
 	Role       Role
 	Content    string
+	ToolCallID string
 	ToolCalls  []ToolCall
-	ToolCallID string // set when Role == RoleTool
 }
 
 // ToolCall represents a function call requested by the model.
 type ToolCall struct {
+	Args map[string]any
 	ID   string
 	Name string
-	Args map[string]any
 }
 
 // Tool defines a function the model can call.
 type Tool struct {
+	Parameters  map[string]any
 	Name        string
 	Description string
-	Parameters  map[string]any // JSON Schema object
 }
 
 // GenerateParams holds everything needed for a single generation request.

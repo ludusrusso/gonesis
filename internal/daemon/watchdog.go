@@ -17,10 +17,10 @@ type HealthCheck interface {
 // Watchdog periodically runs health checks and restarts components after
 // consecutive failures.
 type Watchdog struct {
-	checks   []HealthCheck
 	failures map[string]int
-	mu       sync.Mutex
 	logger   *slog.Logger
+	checks   []HealthCheck
+	mu       sync.Mutex
 }
 
 // NewWatchdog creates a new Watchdog with the given health checks.

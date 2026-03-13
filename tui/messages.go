@@ -4,8 +4,8 @@ import "gonesis/provider"
 
 // agentResponseMsg is sent when the agent completes a turn successfully.
 type agentResponseMsg struct {
-	messages []provider.Message
 	response *provider.Response
+	messages []provider.Message
 }
 
 // agentErrorMsg is sent when the agent encounters an error.
@@ -28,6 +28,6 @@ type streamChunkMsg struct {
 
 // streamDoneMsg signals streaming is complete with the final results.
 type streamDoneMsg struct {
-	messages []provider.Message
 	response *provider.Response
+	messages []provider.Message
 }

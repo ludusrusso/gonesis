@@ -16,11 +16,11 @@ func init() {
 }
 
 type statusPayload struct {
-	PID      int               `json:"pid"`
+	Watchdog map[string]int    `json:"watchdog"`
 	Uptime   string            `json:"uptime"`
 	Version  string            `json:"version"`
-	Watchdog map[string]int    `json:"watchdog"`
 	Crons    []statusCronEntry `json:"crons,omitempty"`
+	PID      int               `json:"pid"`
 }
 
 type statusCronEntry struct {

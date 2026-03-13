@@ -32,27 +32,23 @@ type programRef struct {
 
 // Model is the Bubble Tea model for the chat TUI.
 type Model struct {
-	cfg       *chat.Config
-	ctx       context.Context
-	textinput textinput.Model
-	viewport  viewport.Model
-	spinner   spinner.Model
-
-	messages []provider.Message // provider-level conversation
-	display  []string           // rendered lines for the viewport
-
-	loading       bool
+	ctx           context.Context
 	err           error
-	quitting      bool
+	cfg           *chat.Config
+	program       *programRef
+	streamContent string
+	messages      []provider.Message
+	display       []string
+	textinput     textinput.Model
+	viewport      viewport.Model
+	spinner       spinner.Model
+	streamIdx     int
+	width         int
+	height        int
 	done          bool
-	streamContent string // accumulates streaming text
-	streamIdx     int    // index in display[] of the streaming placeholder
-
-	program *programRef
-
-	width  int
-	height int
-	ready  bool
+	quitting      bool
+	loading       bool
+	ready         bool
 }
 
 // New creates a new TUI Model.
@@ -158,12 +154,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.MouseMsg:
-		var cmd tea.Cmd
-		m.viewport, cmd = m.viewport.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
-		return m, cmd
+		var mouseCmd tea.Cmd
+		m.viewport, mouseCmd = m.viewport.Update(msg)
+		return m, mouseCmd
 
 	case initialTurnMsg:
 		m.appendDisplay(assistantStyle.Render("Agent:"))
@@ -302,9 +295,9 @@ func (m Model) View() string {
 	// Status line or text input.
 	if m.loading {
 		if m.streamContent != "" {
-			b.WriteString(fmt.Sprintf("%s Streaming...", m.spinner.View()))
+			fmt.Fprintf(&b, "%s Streaming...", m.spinner.View())
 		} else {
-			b.WriteString(fmt.Sprintf("%s Thinking...", m.spinner.View()))
+			fmt.Fprintf(&b, "%s Thinking...", m.spinner.View())
 		}
 	} else {
 		b.WriteString(m.textinput.View())

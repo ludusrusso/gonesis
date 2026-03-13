@@ -110,7 +110,7 @@ func (s *Scheduler) ListJobs() []JobInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var infos []JobInfo
+	infos := make([]JobInfo, 0, len(s.scheduler.Jobs()))
 	for _, j := range s.scheduler.Jobs() {
 		info := JobInfo{
 			Name: j.Name(),

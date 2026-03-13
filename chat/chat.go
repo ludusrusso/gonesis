@@ -8,21 +8,13 @@ import (
 
 // Config holds everything needed to run a conversational loop.
 type Config struct {
-	Provider     provider.Provider
-	SystemPrompt string
-	Tools        []provider.Tool
-	Executor     provider.ToolExecutor
-
-	// InitialMessages, if set, are sent to the model before any user input.
-	// This lets the model speak first (e.g. bootstrap interview).
+	Provider        provider.Provider
+	Executor        provider.ToolExecutor
+	OnDone          func(messages []provider.Message)
+	SystemPrompt    string
+	WelcomeText     string
+	Tools           []provider.Tool
 	InitialMessages []provider.Message
-
-	// WelcomeText is displayed at the top of the chat UI.
-	WelcomeText string
-
-	// OnDone is called when the executor signals provider.ErrDone.
-	// It receives the final message history.
-	OnDone func(messages []provider.Message)
 }
 
 // RunTurn appends a user message to the conversation and runs one agent loop.

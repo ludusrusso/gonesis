@@ -12,15 +12,15 @@ import (
 
 // Request is a command sent from the CLI to the daemon.
 type Request struct {
-	Cmd  string         `json:"cmd"`
 	Args map[string]any `json:"args,omitempty"`
+	Cmd  string         `json:"cmd"`
 }
 
 // Response is the daemon's reply to a command.
 type Response struct {
-	OK      bool   `json:"ok"`
 	Payload any    `json:"payload,omitempty"`
 	Error   string `json:"error,omitempty"`
+	OK      bool   `json:"ok"`
 }
 
 // sockPath returns the path to the Unix domain socket.
@@ -34,7 +34,7 @@ func SendCommand(cmd string, args map[string]any) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		return nil, fmt.Errorf("daemon not running (socket not found)")
 	}
 

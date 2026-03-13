@@ -107,7 +107,7 @@ func (p *Provider) Generate(ctx context.Context, params *provider.GenerateParams
 
 // toContents converts our messages to Gemini Content objects.
 func toContents(messages []provider.Message) []*genai.Content {
-	var contents []*genai.Content
+	contents := make([]*genai.Content, 0, len(messages))
 	for _, msg := range messages {
 		contents = append(contents, toContent(msg))
 	}

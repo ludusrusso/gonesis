@@ -1,13 +1,15 @@
 package homer
 
 import (
+	"bytes"
+	"errors"
 	"testing"
 )
 
 func RunHomerSpec(t *testing.T, h Homer) {
 	t.Run("Get missing key returns ErrNotFound", func(t *testing.T) {
 		_, err := h.Get("nonexistent")
-		if err != ErrNotFound {
+		if !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})
@@ -21,7 +23,7 @@ func RunHomerSpec(t *testing.T, h Homer) {
 		if err != nil {
 			t.Fatalf("Get failed: %v", err)
 		}
-		if string(got) != string(data) {
+		if !bytes.Equal(got, data) {
 			t.Fatalf("expected %q, got %q", data, got)
 		}
 	})
@@ -67,7 +69,7 @@ func RunHomerSpec(t *testing.T, h Homer) {
 
 	t.Run("Delete missing key returns ErrNotFound", func(t *testing.T) {
 		err := h.Delete("nonexistent")
-		if err != ErrNotFound {
+		if !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound, got %v", err)
 		}
 	})
@@ -80,7 +82,7 @@ func RunHomerSpec(t *testing.T, h Homer) {
 			t.Fatalf("Delete failed: %v", err)
 		}
 		_, err := h.Get("to-delete.txt")
-		if err != ErrNotFound {
+		if !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound after delete, got %v", err)
 		}
 	})
@@ -93,7 +95,7 @@ func RunHomerSpec(t *testing.T, h Homer) {
 			t.Fatalf("Delete failed: %v", err)
 		}
 		err := h.Delete("once.txt")
-		if err != ErrNotFound {
+		if !errors.Is(err, ErrNotFound) {
 			t.Fatalf("expected ErrNotFound on second delete, got %v", err)
 		}
 	})

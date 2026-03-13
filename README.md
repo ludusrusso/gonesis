@@ -56,6 +56,7 @@ The daemon can execute scheduled LLM prompts. Cron jobs are defined as markdown 
 name: daily-summary
 cron: "0 9 * * *"
 ---
+
 Summarize the key events from yesterday and suggest priorities for today.
 ```
 
@@ -90,7 +91,7 @@ The frontmatter requires `name` and `cron` (standard 5-field cron expression). E
 
 ## Prerequisites
 
-- Go 1.25.5+
+- Go 1.26+
 - A [Google Gemini API key](https://aistudio.google.com/apikey)
 
 ## Getting started
@@ -149,20 +150,20 @@ Gonesis uses a unified home directory at `~/.gonesis/` for all global state.
 
 ### Global files (`~/.gonesis/`)
 
-| File / Directory | Purpose |
-|---|---|
-| `gonesis.yaml` | Configuration (API key, model, base folder) — created on first run |
-| `gonesis.pid` | Daemon PID file |
-| `gonesis.sock` | Daemon Unix domain socket |
-| `gonesis.log` | Daemon log file (JSON) |
-| `crons/` | Cron job definitions (markdown files with YAML frontmatter) |
-| `cron-results/` | Output from executed cron jobs |
+| File / Directory | Purpose                                                            |
+| ---------------- | ------------------------------------------------------------------ |
+| `gonesis.yaml`   | Configuration (API key, model, base folder) — created on first run |
+| `gonesis.pid`    | Daemon PID file                                                    |
+| `gonesis.sock`   | Daemon Unix domain socket                                          |
+| `gonesis.log`    | Daemon log file (JSON)                                             |
+| `crons/`         | Cron job definitions (markdown files with YAML frontmatter)        |
+| `cron-results/`  | Output from executed cron jobs                                     |
 
 ### Project files (`.gonesis/` in working directory)
 
-| File | Purpose |
-|---|---|
-| `SOUL.md` | Agent identity — created during bootstrap |
+| File      | Purpose                                                                    |
+| --------- | -------------------------------------------------------------------------- |
+| `SOUL.md` | Agent identity — created during bootstrap                                  |
 | `USER.md` | Optional user preferences — create manually to pass context about yourself |
 
 Delete `SOUL.md` to re-run the bootstrap and give your agent a new identity.

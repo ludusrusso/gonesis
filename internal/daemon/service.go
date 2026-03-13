@@ -10,8 +10,8 @@ import (
 )
 
 type agentService struct {
-	cfg    Config
 	cancel context.CancelFunc
+	cfg    Config
 	wg     sync.WaitGroup
 }
 
