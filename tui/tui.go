@@ -34,6 +34,7 @@ type programRef struct {
 // Model is the Bubble Tea model for the chat TUI.
 type Model struct {
 	ctx           context.Context
+	cancelTurn    context.CancelFunc
 	err           error
 	cfg           *chat.Config
 	program       *programRef
@@ -113,6 +114,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cfg.OnDone(m.messages)
 			}
 			return m, tea.Quit
+		case tea.KeyEsc:
+			if !m.loading {
+				return m, nil
+			}
+			if m.cancelTurn != nil {
+				m.cancelTurn()
+			}
+			return m, nil
 		case tea.KeyEnter:
 			if m.loading {
 				return m, nil
@@ -132,7 +141,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msgs := make([]provider.Message, len(m.messages))
 			copy(msgs, m.messages)
 			cfg := m.cfg
-			ctx := m.ctx
+			turnCtx, turnCancel := context.WithCancel(m.ctx)
+			m.cancelTurn = turnCancel
 			prog := m.program
 			cfg.OnToolCall = func(tc provider.ToolCall) {
 				if prog.p != nil {
@@ -145,7 +155,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						prog.p.Send(streamChunkMsg{content: chunk})
 					}
 				}
-				updated, resp, err := chat.RunTurnStream(ctx, cfg, msgs, input, onChunk)
+				updated, resp, err := chat.RunTurnStream(turnCtx, cfg, msgs, input, onChunk)
 				if err != nil {
 					if errors.Is(err, provider.ErrDone) {
 						return agentDoneMsg{messages: updated}
@@ -177,7 +187,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msgs := make([]provider.Message, len(m.messages))
 		copy(msgs, m.messages)
 		cfg := m.cfg
-		ctx := m.ctx
+		turnCtx, turnCancel := context.WithCancel(m.ctx)
+		m.cancelTurn = turnCancel
 		prog := m.program
 		cfg.OnToolCall = func(tc provider.ToolCall) {
 			if prog.p != nil {
@@ -190,7 +201,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					prog.p.Send(streamChunkMsg{content: chunk})
 				}
 			}
-			updated, resp, err := chat.RunInitialTurnStream(ctx, cfg, msgs, onChunk)
+			updated, resp, err := chat.RunInitialTurnStream(turnCtx, cfg, msgs, onChunk)
 			if err != nil {
 				if errors.Is(err, provider.ErrDone) {
 					return agentDoneMsg{messages: updated}
@@ -255,6 +266,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case agentErrorMsg:
 		m.loading = false
 		m.activeToolCall = ""
+		if errors.Is(msg.err, context.Canceled) {
+			m.appendDisplay(helpStyle.Render("Interrupted."))
+			return m, nil
+		}
 		m.err = msg.err
 		m.appendDisplay(lipgloss.NewStyle().Width(m.width).Render(errorStyle.Render("Error: " + msg.err.Error())))
 		return m, nil
@@ -334,7 +349,11 @@ func (m Model) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Enter: send | Ctrl+C: quit"))
+	if m.loading {
+		b.WriteString(helpStyle.Render("Esc: interrupt | Ctrl+C: quit"))
+	} else {
+		b.WriteString(helpStyle.Render("Enter: send | Ctrl+C: quit"))
+	}
 
 	return b.String()
 }
