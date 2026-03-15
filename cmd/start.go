@@ -62,8 +62,9 @@ func runDaemon() error {
 	slog.SetDefault(slog.New(handler))
 
 	return daemon.Run(context.Background(), daemon.Config{
-		Version: Version,
-		APIKey:  viper.GetString("gemini_api_key"),
-		Model:   viper.GetString("model"),
+		Version:       Version,
+		APIKey:        viper.GetString("gemini_api_key"),
+		Model:         viper.GetString("model"),
+		TelegramToken: viper.GetString("telegram_token"),
 	})
 }

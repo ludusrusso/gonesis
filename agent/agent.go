@@ -87,7 +87,7 @@ func Finalize(ctx context.Context, cfg Config, messages []provider.Message) erro
 }
 
 func loadTools(home homer.Homer, homeDir string) *tool.Registry {
-	tools := []tool.Tool{getCurrentTimeTool, newBashTool(homeDir)}
+	tools := []tool.Tool{getCurrentTimeTool, newBashTool(homeDir), newNodeTool(homeDir)}
 	if home != nil {
 		tools = append(tools, newLoadSkillTool(home))
 	}

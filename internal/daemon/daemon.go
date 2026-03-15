@@ -16,13 +16,15 @@ import (
 	"gonesis/homer"
 	"gonesis/provider/gemini"
 	"gonesis/x/config"
+	"gonesis/chat/telegram"
 )
 
 // Config holds daemon configuration.
 type Config struct {
-	Version string
-	APIKey  string
-	Model   string
+	Version       string
+	APIKey        string
+	Model         string
+	TelegramToken string
 }
 
 // Run is the main daemon loop. It manages the PID file, socket server, watchdog,
@@ -49,8 +51,10 @@ func Run(ctx context.Context, cfg Config) error {
 	wd := NewWatchdog(logger)
 
 	// --- Session manager initialization ---
+	var sm *SessionManager
 	if cfg.APIKey != "" {
-		sm, err := initSessionManager(ctx, cfg, logger)
+		var err error
+		sm, err = initSessionManager(ctx, cfg, logger)
 		if err != nil {
 			logger.Warn("session manager disabled", "error", err)
 		} else {
@@ -170,6 +174,23 @@ func Run(ctx context.Context, cfg Config) error {
 		defer wg.Done()
 		wd.Run(ctx)
 	}()
+
+	// --- Telegram bot ---
+	if cfg.TelegramToken != "" && sm != nil {
+		tgBridge, err := telegram.New(cfg.TelegramToken, sm)
+		if err != nil {
+			logger.Warn("telegram bot disabled", "error", err)
+		} else {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := tgBridge.Run(ctx); err != nil && ctx.Err() == nil {
+					logger.Error("telegram bot error", "error", err)
+				}
+			}()
+			logger.Info("telegram bot started")
+		}
+	}
 
 	logger.Info("daemon started", "pid", os.Getpid(), "version", cfg.Version)
 

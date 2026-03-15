@@ -60,6 +60,12 @@ func (sm *SessionManager) Create() *ManagedSession {
 	return sess
 }
 
+// CreateSession creates a new session and returns its ID.
+// This satisfies the telegram.SessionProvider interface.
+func (sm *SessionManager) CreateSession() string {
+	return sm.Create().ID
+}
+
 // Get returns the session with the given ID, or nil.
 func (sm *SessionManager) Get(id string) *ManagedSession {
 	sm.mu.RLock()
@@ -128,6 +134,20 @@ func (sm *SessionManager) RunTurnStream(ctx context.Context, id string, input st
 
 	sess.Messages = updated
 	return resp.Message.Content, nil
+}
+
+// RunTurnStreamRaw is like RunTurnStream but uses plain function types instead
+// of named callback types, making it usable as a telegram.SessionProvider method.
+func (sm *SessionManager) RunTurnStreamRaw(ctx context.Context, id string, input string, onChunk func(string), onToolCall func(string, string)) (string, error) {
+	var chunkCb OnChunkFunc
+	if onChunk != nil {
+		chunkCb = OnChunkFunc(onChunk)
+	}
+	var toolCb OnToolCallFunc
+	if onToolCall != nil {
+		toolCb = OnToolCallFunc(onToolCall)
+	}
+	return sm.RunTurnStream(ctx, id, input, chunkCb, toolCb)
 }
 
 // formatToolArgs formats a tool call's args map into a compact string.
