@@ -1,17 +1,35 @@
-# wildgecu
+# WildGecu 🦎
 
-A bootstrappable AI agent with personality and identity, built in Go. On first run, the agent interviews you to discover who it should be, then writes its own soul to disk. Every session after that, it wakes up already knowing itself.
+**Wild by nature, safe by design.**
 
-## Features
+An open-source, multi-provider AI agent framework written in Go.
 
-- **Soul system** — The agent bootstraps its own identity through a conversational interview, stored as `SOUL.md`
-- **Provider abstraction** — LLM-agnostic design behind a simple `Provider` interface (ships with Google Gemini)
-- **Streaming TUI** — Real-time chat interface built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), with streaming token output
-- **Tool framework** — Agents can call tools during conversation; the bootstrap itself uses a `write_soul` tool
-- **Agent loop** — Built-in agentic loop that handles tool calls, execution, and re-prompting automatically
-- **Background daemon** — Long-running daemon with health checks, self-update, and system service support
-- **Cron scheduler** — Define scheduled LLM prompts as markdown files with YAML frontmatter; the daemon executes them on schedule and writes results to disk
-- **Unified CLI** — Single binary with subcommands for chat, daemon management, cron jobs, and service lifecycle
+## Why "WildGecu"?
+
+In Salento — the sun-scorched heel of Italy's boot — the gecko is everywhere. You'll find it clinging to the ancient dry stone walls (*muretti a secco*), perched on the warm tufa of baroque churches, navigating crumbling farmhouses at dusk. Locals call it *gecu*, and it has been a symbol of this land for centuries: resilient, adaptable, quietly useful.
+
+The Mediterranean house gecko (*Tarentola mauritanica*) — whose scientific name traces back to Taranto, the gateway to Salento — owes its remarkable abilities to a simple, elegant mechanism: millions of microscopic lamellae on its toe pads that exploit Van der Waals forces to grip any surface, at any angle, without glue or suction. It doesn't need permission to climb. It just holds on.
+
+That's the idea behind WildGecu. An AI agent framework that attaches to any surface — Anthropic, OpenAI, Ollama, or whatever comes next — and doesn't let go. One that runs wild and free as open-source software, but is engineered to be safe, predictable, and secure by default. One that lives quietly in the background, like a gecko on a warm wall, doing its work without fuss.
+
+**Wild** because it's free, open, and untamed by vendor lock-in.
+**Gecu** because every good project deserves a name that sounds like home.
+
+## What is WildGecu?
+
+WildGecu is a modular AI agent framework in Go. It provides a reusable foundation for building autonomous agents with:
+
+- **Multi-provider support** — LLM-agnostic design behind a clean `Provider` interface (ships with Google Gemini; Anthropic, OpenAI, Ollama next)
+- **Soul** — persistent identity bootstrapped through a conversational interview, stored as Markdown
+- **Memory** — persistent context across sessions with automatic curation after each conversation
+- **Skills** — a plugin system with lazy-loaded Markdown-based definitions and YAML frontmatter
+- **Cron jobs** — an in-process scheduler with isolated sessions, powered by gocron
+- **Parallel tool calling** — concurrent execution of independent tool calls within the agent loop
+- **Telegram bridge** — daemon-based chat via Telegram bot
+- **Self-update** — the agent can update its own binary at runtime
+- **Background daemon** — long-running process with health checks, IPC socket, and system service support
+
+No database required. File-based state. One binary. Your keys, your data, your gecko.
 
 ## How it works
 
@@ -20,74 +38,35 @@ First run:                              Every run after:
 
 ┌─────────────┐                         ┌─────────────┐
 │  No SOUL.md │                         │ Load SOUL.md│
-└──────┬──────┘                         └──────┬──────┘
-       │                                       │
-       ▼                                       ▼
+└──────┬──────┘                         │ + MEMORY.md │
+       │                                └──────┬──────┘
+       ▼                                       │
 ┌─────────────────┐                     ┌─────────────────┐
 │   Bootstrap TUI │                     │  Build system   │
 │  (interview you)│                     │  prompt from    │
 │                 │                     │  AGENT + SOUL   │
-└──────┬──────────┘                     │  + USER (opt.)  │
+└──────┬──────────┘                     │  + USER + MEM   │
        │                                └──────┬──────────┘
        ▼                                       │
 ┌─────────────────┐                            ▼
 │  Agent calls    │                     ┌─────────────────┐
 │  write_soul     │                     │    Chat TUI     │
-│  → .wildgecu/    │                     │  (normal mode)  │
-│    SOUL.md      │                     └─────────────────┘
-└──────┬──────────┘
-       │
-       ▼
-    Chat TUI
+│  → .wildgecu/   │                     │  (normal mode)  │
+│    SOUL.md      │                     └──────┬──────────┘
+└──────┬──────────┘                            │
+       │                                       ▼
+       ▼                                ┌─────────────────┐
+    Chat TUI                            │ Memory curation │
+                                        │ → .wildgecu/    │
+                                        │   MEMORY.md     │
+                                        └─────────────────┘
 ```
 
-**Bootstrap phase**: The agent receives a system prompt (BOOTSTRAP.md) that guides it to ask about your agent's name, purpose, personality, expertise, and boundaries. After a few exchanges, it calls the `write_soul` tool to persist its identity.
+**Bootstrap phase**: The agent receives a system prompt (`BOOTSTRAP.md`) that guides it to ask about your agent's name, purpose, personality, expertise, and boundaries. After a few exchanges, it calls the `write_soul` tool to persist its identity.
 
-**Normal mode**: The system prompt is assembled from three parts — base behavior (AGENT.md), the agent's identity (SOUL.md), and optional user preferences (USER.md).
+**Normal mode**: The system prompt is assembled from four parts — base behavior (`AGENT.md`), the agent's identity (`SOUL.md`), persistent memory (`MEMORY.md`), and optional user preferences (`USER.md`).
 
-## Cron jobs
-
-The daemon can execute scheduled LLM prompts. Cron jobs are defined as markdown files with YAML frontmatter in `~/.wildgecu/crons/`. Results are written to `~/.wildgecu/cron-results/`.
-
-### Cron file format
-
-```markdown
----
-name: daily-summary
-cron: "0 9 * * *"
----
-
-Summarize the key events from yesterday and suggest priorities for today.
-```
-
-The frontmatter requires `name` and `cron` (standard 5-field cron expression). Everything after the closing `---` is the LLM prompt.
-
-### How it works
-
-```
-~/.wildgecu/crons/                        ~/.wildgecu/cron-results/
-┌─────────────────┐                      ┌──────────────────────────────┐
-│ daily-summary.md│──┐                   │ daily-summary-20260304-09... │
-│ weekly-report.md│  │                   │ weekly-report-20260303-00... │
-└─────────────────┘  │                   └──────────────────────────────┘
-                     │                                ▲
-                     ▼                                │
-              ┌─────────────┐    ┌──────────┐    ┌────┴─────┐
-              │  Scheduler  │───▶│ Executor │───▶│ Provider │
-              │  (gocron)   │    │          │    │ (Gemini) │
-              └─────────────┘    └──────────┘    └──────────┘
-                     ▲
-                     │ cron-reload
-              ┌──────┴──────┐
-              │   Daemon    │
-              │ (socket srv)│
-              └─────────────┘
-```
-
-- The **scheduler** loads all `*.md` files from `~/.wildgecu/crons/` and registers them with gocron
-- On each trigger, the **executor** sends the prompt to the configured LLM provider (no tools, for safety) and writes the response to `~/.wildgecu/cron-results/<name>-<YYYYMMDD-HHMMSS>.md`
-- `wildgecu cron add` / `wildgecu cron rm` modify files and send a `cron-reload` command to the running daemon via the Unix socket
-- The scheduler requires `gemini_api_key` to be configured; without it, cron is disabled and the daemon logs a notice
+**Memory curation**: After each session, a dedicated memory agent reviews the conversation and updates `MEMORY.md` — extracting key patterns, preferences, and context while keeping it concise.
 
 ## Prerequisites
 
@@ -109,7 +88,7 @@ On first run, the agent will start a bootstrap conversation to establish its ide
 
 ## CLI commands
 
-Wildgecu is a single binary. Chat is the default command; daemon management is available as subcommands.
+WildGecu is a single binary. Chat is the default command; daemon management is available as subcommands.
 
 ```bash
 # Chat (default)
@@ -130,6 +109,10 @@ wildgecu cron ls      # list all scheduled jobs
 wildgecu cron add     # add a new cron job (interactive TUI)
 wildgecu cron rm test # remove a cron job by name
 
+# Skills
+wildgecu skill ls     # list installed skills
+wildgecu skill add    # add a new skill
+
 # System service
 wildgecu install      # install as a system service
 wildgecu uninstall    # remove the system service
@@ -144,27 +127,64 @@ Build with a version tag:
 go build -ldflags "-X wildgecu/cmd.Version=1.0.0" -o wildgecu .
 ```
 
+## Cron jobs
+
+The daemon executes scheduled LLM prompts. Cron jobs are defined as markdown files with YAML frontmatter in `~/.wildgecu/crons/`. Results are written to `~/.wildgecu/cron-results/`.
+
+### Cron file format
+
+```markdown
+---
+name: daily-summary
+cron: "0 9 * * *"
+---
+
+Summarize the key events from yesterday and suggest priorities for today.
+```
+
+The frontmatter requires `name` and `cron` (standard 5-field cron expression). Everything after the closing `---` is the LLM prompt.
+
+## Skills
+
+Skills are domain-specific knowledge files that the agent can load on demand. They are stored as markdown files with YAML frontmatter in `~/.wildgecu/skills/`.
+
+### Skill file format
+
+```markdown
+---
+name: code-review
+description: Guidelines for reviewing Go code
+tags: [go, review]
+---
+
+When reviewing Go code, focus on...
+```
+
+The agent loads skills dynamically via the `load_skill` tool during conversation.
+
 ## Configuration
 
-Wildgecu uses a unified home directory at `~/.wildgecu/` for all global state.
+WildGecu uses a unified home directory at `~/.wildgecu/` for all global state.
 
 ### Global files (`~/.wildgecu/`)
 
-| File / Directory | Purpose                                                            |
-| ---------------- | ------------------------------------------------------------------ |
-| `wildgecu.yaml`   | Configuration (API key, model, base folder) — created on first run |
-| `wildgecu.pid`    | Daemon PID file                                                    |
-| `wildgecu.sock`   | Daemon Unix domain socket                                          |
-| `wildgecu.log`    | Daemon log file (JSON)                                             |
-| `crons/`         | Cron job definitions (markdown files with YAML frontmatter)        |
-| `cron-results/`  | Output from executed cron jobs                                     |
+| File / Directory | Purpose |
+| --- | --- |
+| `wildgecu.yaml` | Configuration (API key, model) — created on first run |
+| `wildgecu.pid` | Daemon PID file |
+| `wildgecu.sock` | Daemon Unix domain socket |
+| `wildgecu.log` | Daemon log file (JSON) |
+| `crons/` | Cron job definitions (markdown + YAML frontmatter) |
+| `cron-results/` | Output from executed cron jobs |
+| `skills/` | Domain-specific knowledge files |
 
 ### Project files (`.wildgecu/` in working directory)
 
-| File      | Purpose                                                                    |
-| --------- | -------------------------------------------------------------------------- |
-| `SOUL.md` | Agent identity — created during bootstrap                                  |
-| `USER.md` | Optional user preferences — create manually to pass context about yourself |
+| File | Purpose |
+| --- | --- |
+| `SOUL.md` | Agent identity — created during bootstrap |
+| `MEMORY.md` | Persistent context — curated after each session |
+| `USER.md` | Optional user preferences — create manually |
 
 Delete `SOUL.md` to re-run the bootstrap and give your agent a new identity.
 
@@ -187,70 +207,72 @@ export GEMINI_API_KEY="your-key"
 ```
 wildgecu.go                  # Entry point → cmd.Execute()
 │
-├── cmd/                    # CLI layer (Cobra)
-│   ├── root.go             # Root command, config init, Version var
-│   ├── chat.go             # chat subcommand (also default)
-│   ├── start.go            # start subcommand + runDaemon()
-│   ├── stop.go             # stop subcommand
-│   ├── restart.go          # restart subcommand
-│   ├── status.go           # status subcommand
-│   ├── health.go           # health subcommand
-│   ├── logs.go             # logs subcommand + readLastLines()
-│   ├── update.go           # update subcommand
-│   ├── install.go          # install subcommand
-│   ├── uninstall.go        # uninstall subcommand
-│   ├── cron.go             # cron parent, ls, rm subcommands
-│   ├── cron_add.go         # cron add subcommand (Bubble Tea TUI)
-│   ├── setsid_unix.go      # reExecDetached() for Unix
-│   └── setsid_windows.go   # reExecDetached() stub for Windows
+├── cmd/                     # CLI layer (Cobra)
+│   ├── root.go              # Root command, config init, Version var
+│   ├── chat.go              # chat subcommand (also default)
+│   ├── start.go             # start subcommand + runDaemon()
+│   ├── stop.go / restart.go # daemon lifecycle
+│   ├── status.go / health.go
+│   ├── logs.go              # logs subcommand
+│   ├── update.go            # self-update subcommand
+│   ├── install.go           # system service install/uninstall
+│   ├── cron.go / cron_add.go
+│   └── skill.go / skill_add.go
 │
-├── agent/                  # Agent logic
-│   ├── agent.go            # Run() — orchestrates bootstrap → chat
-│   ├── bootstrap.go        # Bootstrap interview + write_soul tool
-│   ├── soul.go             # Soul I/O and system prompt assembly
-│   ├── prompt.go           # Embeds AGENT.md and BOOTSTRAP.md
-│   ├── AGENT.md            # Base agent behavior prompt
-│   └── BOOTSTRAP.md        # Bootstrap conversation prompt
+├── agent/                   # Agent logic
+│   ├── agent.go             # Run() — orchestrates bootstrap → chat
+│   ├── bootstrap.go         # Bootstrap interview + write_soul tool
+│   ├── soul.go              # Soul I/O and system prompt assembly
+│   ├── memory.go            # Memory persistence and curation
+│   ├── prompt.go            # Embeds AGENT.md, BOOTSTRAP.md, MEMORY_AGENT.md
+│   ├── AGENT.md             # Base agent behavior prompt
+│   ├── BOOTSTRAP.md         # Bootstrap conversation prompt
+│   └── MEMORY_AGENT.md      # Memory curation instructions
 │
-├── x/config/               # Shared config package
-│   └── config.go           # GlobalHome, GlobalFilePath, ProjectDir,
-│                           # ProjectFilePath, EnsureConfigFile
+├── provider/                # LLM provider abstraction
+│   ├── provider.go          # Provider interface, types
+│   ├── agent.go             # RunAgentLoop / RunAgentLoopStream
+│   ├── tool/                # Type-safe tool system (Tool, Registry, Executor)
+│   └── gemini/              # Google Gemini implementation
 │
-├── cron/                   # Cron scheduling
-│   ├── cron.go             # CronJob struct, Parse, Serialize, LoadAll
-│   ├── executor.go         # Execute() — runs a single cron job via provider
-│   └── scheduler.go        # Scheduler — wraps gocron, LoadAndStart, Reload
+├── session/                 # Conversation management
+│   └── session.go           # RunTurn, RunTurnStream, callbacks
 │
-├── internal/daemon/        # Daemon infrastructure
-│   ├── daemon.go           # Run() — main loop, socket server, cron scheduler, signals
-│   ├── pidfile.go          # PID file management (uses x/config)
-│   ├── client.go           # IPC client (uses x/config for socket path)
-│   ├── socket.go           # Unix socket server + command dispatch
-│   ├── service.go          # System service integration (kardianos/service)
-│   ├── watchdog.go         # Periodic health checker
-│   └── updater.go          # Self-update via binary replacement
+├── skill/                   # Skills system
+│   └── skill.go             # Skill struct, Parse, Load
 │
-├── provider/               # LLM provider abstraction
-│   ├── provider.go         # Provider interface, types
-│   ├── agent.go            # RunAgentLoop / RunAgentLoopStream
-│   └── gemini/
-│       └── gemini.go       # Google Gemini implementation
+├── chat/                    # Chat frontends
+│   ├── tui/                 # Bubble Tea terminal UI
+│   └── telegram/            # Telegram bot bridge
 │
-├── chat/
-│   └── chat.go             # Config, RunTurn, RunTurnStream
+├── cron/                    # Cron scheduling
+│   ├── cron.go              # CronJob struct, Parse, LoadAll
+│   ├── executor.go          # Execute() — runs a single cron job
+│   └── scheduler.go         # Scheduler — wraps gocron
 │
-└── tui/
-    ├── tui.go              # Bubble Tea Model
-    ├── messages.go          # Internal message types
-    └── styles.go            # Lipgloss styling
+├── internal/daemon/         # Daemon infrastructure
+│   ├── daemon.go            # Main loop, socket server, signals
+│   ├── sessions.go          # SessionManager for concurrent chats
+│   ├── socket.go            # Unix socket server + command dispatch
+│   ├── watchdog.go          # Periodic health checker
+│   ├── updater.go           # Self-update via binary replacement
+│   ├── pidfile.go / client.go
+│   └── service.go           # System service integration
+│
+├── homer/                   # File abstraction (FSHomer, MemHomer)
+├── x/config/                # Shared config (GlobalHome, ProjectDir)
+├── debug/                   # Debug logging
+└── pkg/context/             # Context utilities
 ```
 
 ### Key design decisions
 
-- **Single binary**: All commands (chat, daemon management, service lifecycle) are subcommands of one `wildgecu` binary — no separate `cmd/agent/` binary.
-- **Unified home (`~/.wildgecu/`)**: Config, PID, socket, and logs all live under one directory, managed by `x/config`.
-- **`x/config` package**: Zero-dependency (stdlib only) shared package that all other packages import for path resolution. Prevents scattered `os.UserHomeDir()` + `filepath.Join()` patterns.
-- **Project-local `.wildgecu/`**: Per-project identity files (`SOUL.md`, `USER.md`) stay in the working directory, separate from global daemon state.
+- **Single binary** — All commands (chat, daemon, cron, skills, service) are subcommands of one `wildgecu` binary.
+- **Unified home (`~/.wildgecu/`)** — Config, PID, socket, logs, crons, and skills all live under one directory, managed by `x/config`.
+- **`x/config` package** — Zero-dependency (stdlib only) shared package that all other packages import for path resolution.
+- **Project-local `.wildgecu/`** — Per-project identity files (`SOUL.md`, `MEMORY.md`, `USER.md`) stay in the working directory, separate from global daemon state.
+- **Homer abstraction** — File operations are abstracted behind an interface (`FSHomer` for disk, `MemHomer` for tests), keeping the agent logic testable.
+- **Parallel tool calling** — Independent tool calls within a single agent turn are executed concurrently for lower latency.
 
 ## Adding a new provider
 
@@ -271,8 +293,8 @@ type StreamProvider interface {
 }
 ```
 
-Then wire it up in `cmd/chat.go` instead of the Gemini provider.
+Then wire it up in `cmd/chat.go` alongside the Gemini provider.
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+Apache 2.0 — see [LICENSE](LICENSE) for details.
