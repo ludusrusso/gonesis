@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 
 	"wildgecu/debug"
 )
@@ -19,8 +21,6 @@ type ToolExecutor func(ctx context.Context, tc ToolCall) (string, error)
 type ToolCallCallback func(tc ToolCall)
 
 // RunAgentLoopStream is like RunAgentLoop but streams the final text response.
-// Intermediate tool-call iterations use blocking Generate. Only the final
-// text-only response streams chunks via onChunk.
 func RunAgentLoopStream(ctx context.Context, p Provider, systemPrompt string, messages []Message, tools []Tool, execute ToolExecutor, onChunk StreamCallback, onToolCall ToolCallCallback, dbg *debug.Logger) ([]Message, *Response, error) {
 	sp, canStream := p.(StreamProvider)
 	if !canStream {
@@ -67,27 +67,14 @@ func RunAgentLoopStream(ctx context.Context, p Provider, systemPrompt string, me
 			return messages, resp, nil
 		}
 
-		// Tool calls detected — execute them, then loop with blocking Generate.
 		dbg.ModelResponse(fullContent)
 		messages = append(messages, resp.Message)
-		for _, tc := range resp.Message.ToolCalls {
-			dbg.ToolCall(tc.Name, tc.Args)
-			if onToolCall != nil {
-				onToolCall(tc)
-			}
-			result, err := execute(ctx, tc)
-			if err != nil {
-				if errors.Is(err, ErrDone) {
-					dbg.ToolResult(tc.Name, result)
-					return messages, resp, ErrDone
-				}
-				dbg.Error(err)
-				return messages, resp, err
-			}
-			dbg.ToolResult(tc.Name, result)
-			messages = append(messages, Message{Role: RoleTool, Content: result, ToolCallID: tc.Name})
+
+		toolMessages, err := executeToolsParallel(ctx, resp.Message.ToolCalls, execute, onToolCall, dbg)
+		messages = append(messages, toolMessages...)
+		if err != nil {
+			return messages, resp, err
 		}
-		// After tool execution, loop again (will stream again for next response)
 	}
 }
 
@@ -118,26 +105,61 @@ func RunAgentLoop(ctx context.Context, p Provider, systemPrompt string, messages
 		dbg.ModelResponse(resp.Message.Content)
 		messages = append(messages, resp.Message)
 
-		for _, tc := range resp.Message.ToolCalls {
-			dbg.ToolCall(tc.Name, tc.Args)
-			if onToolCall != nil {
-				onToolCall(tc)
-			}
-			result, err := execute(ctx, tc)
-			if err != nil {
-				if errors.Is(err, ErrDone) {
-					dbg.ToolResult(tc.Name, result)
-					return messages, resp, ErrDone
-				}
-				dbg.Error(err)
-				return messages, resp, err
-			}
-			dbg.ToolResult(tc.Name, result)
-			messages = append(messages, Message{
-				Role:       RoleTool,
-				Content:    result,
-				ToolCallID: tc.Name,
-			})
+		toolMessages, err := executeToolsParallel(ctx, resp.Message.ToolCalls, execute, onToolCall, dbg)
+		messages = append(messages, toolMessages...)
+		if err != nil {
+			return messages, resp, err
 		}
 	}
+}
+
+// executeToolsParallel runs multiple tool calls concurrently and collects results.
+func executeToolsParallel(ctx context.Context, toolCalls []ToolCall, execute ToolExecutor, onToolCall ToolCallCallback, dbg *debug.Logger) ([]Message, error) {
+	var wg sync.WaitGroup
+	msgs := make([]Message, len(toolCalls))
+	errs := make([]error, len(toolCalls))
+
+	for i, tc := range toolCalls {
+		wg.Add(1)
+		go func(i int, tc ToolCall) {
+			defer wg.Done()
+			msgs[i], errs[i] = executeOne(ctx, tc, execute, onToolCall, dbg)
+		}(i, tc)
+	}
+	wg.Wait()
+
+	// Find if any tool returned the sentinel ErrDone
+	var firstErr error
+	for _, err := range errs {
+		if errors.Is(err, ErrDone) {
+			firstErr = ErrDone
+			break
+		}
+	}
+
+	return msgs, firstErr
+}
+
+// executeOne handles the execution and logging of a single tool call.
+func executeOne(ctx context.Context, tc ToolCall, execute ToolExecutor, onToolCall ToolCallCallback, dbg *debug.Logger) (Message, error) {
+	dbg.ToolCall(tc.Name, tc.Args)
+	if onToolCall != nil {
+		onToolCall(tc)
+	}
+
+	result, err := execute(ctx, tc)
+
+	// If it's a real error (not the sentinel), format it for the LLM
+	if err != nil && !errors.Is(err, ErrDone) {
+		dbg.Error(err)
+		result = fmt.Sprintf("Error: %v", err)
+	} else {
+		dbg.ToolResult(tc.Name, result)
+	}
+
+	return Message{
+		Role:       RoleTool,
+		Content:    result,
+		ToolCallID: tc.Name,
+	}, err
 }
