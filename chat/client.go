@@ -22,6 +22,8 @@ type request struct {
 	Type      string `json:"type"`
 	SessionID string `json:"session_id,omitempty"`
 	Content   string `json:"content,omitempty"`
+	Mode      string `json:"mode,omitempty"`
+	WorkDir   string `json:"work_dir,omitempty"`
 }
 
 // Client communicates with the daemon over a long-lived Unix socket using NDJSON.
@@ -49,6 +51,22 @@ func Connect(socketPath string) (*Client, error) {
 func (c *Client) CreateSession() (sessionID string, welcome string, err error) {
 	if err := c.encoder.Encode(request{Type: "session.create"}); err != nil {
 		return "", "", fmt.Errorf("send session.create: %w", err)
+	}
+	var ev Event
+	if err := c.decoder.Decode(&ev); err != nil {
+		return "", "", fmt.Errorf("read session.created: %w", err)
+	}
+	if ev.Type == "error" {
+		return "", "", fmt.Errorf("session.create failed: %s", ev.Message)
+	}
+	return ev.SessionID, ev.Welcome, nil
+}
+
+// CreateCodeSession asks the daemon to create a new code-mode session.
+// Returns the session ID and the welcome text.
+func (c *Client) CreateCodeSession(workDir string) (sessionID string, welcome string, err error) {
+	if err := c.encoder.Encode(request{Type: "session.create", Mode: "code", WorkDir: workDir}); err != nil {
+		return "", "", fmt.Errorf("send session.create (code): %w", err)
 	}
 	var ev Event
 	if err := c.decoder.Decode(&ev); err != nil {

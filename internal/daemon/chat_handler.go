@@ -12,6 +12,8 @@ type ChatRequest struct {
 	Type      string `json:"type"`
 	SessionID string `json:"session_id,omitempty"`
 	Content   string `json:"content,omitempty"`
+	Mode      string `json:"mode,omitempty"`
+	WorkDir   string `json:"work_dir,omitempty"`
 }
 
 // ChatEvent is a server→client message on a NDJSON chat connection.
@@ -54,12 +56,25 @@ func (s *SocketServer) handleChatConnection(conn net.Conn, firstReq *ChatRequest
 func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {
 	switch req.Type {
 	case "session.create":
-		sess := sessions.Create()
-		logger.Info("session created", "session_id", sess.ID)
+		var sess *ManagedSession
+		var welcome string
+		if req.Mode == "code" {
+			var err error
+			sess, err = sessions.CreateCode(req.WorkDir)
+			if err != nil {
+				send(ChatEvent{Type: "error", Message: "create code session: " + err.Error()})
+				return
+			}
+			welcome = sess.welcomeText
+		} else {
+			sess = sessions.Create()
+			welcome = sessions.WelcomeText()
+		}
+		logger.Info("session created", "session_id", sess.ID, "mode", req.Mode)
 		send(ChatEvent{
 			Type:      "session.created",
 			SessionID: sess.ID,
-			Welcome:   sessions.WelcomeText(),
+			Welcome:   welcome,
 		})
 
 	case "session.resume":

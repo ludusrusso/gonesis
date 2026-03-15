@@ -23,12 +23,14 @@ type SessionManager struct {
 
 // ManagedSession holds the state for a single chat session.
 type ManagedSession struct {
-	ID        string
-	Messages  []provider.Message
-	mu        sync.Mutex
-	createdAt time.Time
-	cancel    context.CancelFunc
-	cancelMu  sync.Mutex
+	ID          string
+	Messages    []provider.Message
+	cfg         *session.Config // per-session config (nil = use shared chatCfg)
+	welcomeText string          // per-session welcome text
+	mu          sync.Mutex
+	createdAt   time.Time
+	cancel      context.CancelFunc
+	cancelMu    sync.Mutex
 }
 
 // NewSessionManager calls agent.Prepare to build the shared session.Config.
@@ -66,6 +68,25 @@ func (sm *SessionManager) Create() *ManagedSession {
 // This satisfies the telegram.SessionProvider interface.
 func (sm *SessionManager) CreateSession() string {
 	return sm.Create().ID
+}
+
+// CreateCode creates a new code-mode session with file tools and workDir-scoped bash.
+func (sm *SessionManager) CreateCode(workDir string) (*ManagedSession, error) {
+	codeCfg, _, err := agent.PrepareCode(context.Background(), sm.agentCfg, workDir)
+	if err != nil {
+		return nil, err
+	}
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sess := &ManagedSession{
+		ID:          uuid.New().String(),
+		Messages:    append([]provider.Message{}, codeCfg.InitialMessages...),
+		cfg:         codeCfg,
+		welcomeText: codeCfg.WelcomeText,
+		createdAt:   time.Now(),
+	}
+	sm.sessions[sess.ID] = sess
+	return sess, nil
 }
 
 // Get returns the session with the given ID, or nil.
@@ -139,9 +160,12 @@ func (sm *SessionManager) RunTurnStream(ctx context.Context, id string, input st
 		cancel()
 	}()
 
-	// Wire up the tool call callback on the shared config.
-	// We make a shallow copy so we don't mutate the shared config.
-	cfg := *sm.chatCfg
+	// Use per-session config if available, otherwise shared chatCfg.
+	baseCfg := sm.chatCfg
+	if sess.cfg != nil {
+		baseCfg = sess.cfg
+	}
+	cfg := *baseCfg
 	cfg.OnToolCall = func(tc provider.ToolCall) {
 		if onToolCall != nil {
 			onToolCall(tc.Name, formatToolArgs(tc.Args, 100))

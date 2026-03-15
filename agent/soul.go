@@ -73,3 +73,27 @@ func BuildSystemPrompt(workspace homer.Homer, soulContent, memoryContent string)
 
 	return strings.Join(sections, "\n\n")
 }
+
+// BuildCodeSystemPrompt assembles the system prompt for code mode.
+// It uses CODE_AGENT.md instead of AGENT.md, with {CWD} replaced by workDir.
+func BuildCodeSystemPrompt(workspace homer.Homer, soulContent, memoryContent, workDir string) string {
+	prompt := strings.ReplaceAll(codeAgentPrompt, "{CWD}", workDir)
+
+	sections := []string{
+		fmt.Sprintf("# Agent\n\n%s", strings.TrimSpace(prompt)),
+	}
+
+	if s := strings.TrimSpace(soulContent); s != "" {
+		sections = append(sections, fmt.Sprintf("# Agent Soul\n\n%s", s))
+	}
+
+	if m := strings.TrimSpace(memoryContent); m != "" {
+		sections = append(sections, fmt.Sprintf("# Memory\n\n%s", m))
+	}
+
+	if userPrefs, err := loadWorkspaceFile(workspace, "USER.md"); err == nil && strings.TrimSpace(userPrefs) != "" {
+		sections = append(sections, fmt.Sprintf("# User Preferences\n\n%s", strings.TrimSpace(userPrefs)))
+	}
+
+	return strings.Join(sections, "\n\n")
+}

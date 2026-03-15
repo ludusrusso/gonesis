@@ -86,10 +86,68 @@ func Finalize(ctx context.Context, cfg Config, messages []provider.Message) erro
 	return RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, messages, memoryContent)
 }
 
+// PrepareCode sets up a code-mode session with file tools and bash running in workDir.
+func PrepareCode(ctx context.Context, cfg Config, workDir string) (*session.Config, *debug.Logger, error) {
+	var dbg *debug.Logger
+	if cfg.Debug {
+		var err error
+		dbg, err = debug.New()
+		if err != nil {
+			return nil, nil, fmt.Errorf("debug logger: %w", err)
+		}
+	}
+
+	soulContent, err := LoadSoul(cfg.Home)
+	if err != nil && !errors.Is(err, homer.ErrNotFound) {
+		return nil, dbg, fmt.Errorf("loading soul: %w", err)
+	}
+	if errors.Is(err, homer.ErrNotFound) {
+		return nil, dbg, fmt.Errorf("soul not found: run 'wildgecu chat' directly to bootstrap your agent first")
+	}
+
+	memoryContent, memErr := LoadMemory(cfg.Home)
+	if memErr != nil && !errors.Is(memErr, homer.ErrNotFound) {
+		return nil, dbg, fmt.Errorf("loading memory: %w", memErr)
+	}
+
+	tools := loadCodeTools(cfg.SkillsHome, workDir)
+	systemPrompt := BuildCodeSystemPrompt(cfg.Workspace, soulContent, memoryContent, workDir)
+	if dbg != nil {
+		dbg.SystemPrompt(systemPrompt)
+	}
+
+	codeCfg := &session.Config{
+		Provider:     cfg.Provider,
+		SystemPrompt: systemPrompt,
+		Tools:        tools.Tools(),
+		Executor:     tools.Executor(),
+		WelcomeText:  "Code agent ready. Working directory: " + workDir,
+		Debug:        dbg,
+	}
+
+	return codeCfg, dbg, nil
+}
+
 func loadTools(home homer.Homer, homeDir string) *tool.Registry {
 	tools := []tool.Tool{getCurrentTimeTool, newBashTool(homeDir), newNodeTool(homeDir)}
 	if home != nil {
 		tools = append(tools, newLoadSkillTool(home))
+	}
+	return tool.NewRegistry(tools...)
+}
+
+func loadCodeTools(skillsHome homer.Homer, workDir string) *tool.Registry {
+	tools := []tool.Tool{
+		getCurrentTimeTool,
+		newBashTool(workDir),
+		newNodeTool(workDir),
+		newListFilesTool(workDir),
+		newReadFileTool(workDir),
+		newWriteFileTool(workDir),
+		newUpdateFileTool(workDir),
+	}
+	if skillsHome != nil {
+		tools = append(tools, newLoadSkillTool(skillsHome))
 	}
 	return tool.NewRegistry(tools...)
 }

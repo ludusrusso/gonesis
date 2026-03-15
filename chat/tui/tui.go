@@ -48,6 +48,8 @@ type Model struct {
 	quitting       bool
 	loading        bool
 	ready          bool
+	codeMode       bool
+	workDir        string
 }
 
 // New creates a new TUI Model connected to the daemon via a chat.Client.
@@ -77,7 +79,13 @@ func (m Model) Init() tea.Cmd {
 
 // createSession sends session.create to the daemon.
 func (m Model) createSession() tea.Msg {
-	sessionID, welcome, err := m.client.CreateSession()
+	var sessionID, welcome string
+	var err error
+	if m.codeMode {
+		sessionID, welcome, err = m.client.CreateCodeSession(m.workDir)
+	} else {
+		sessionID, welcome, err = m.client.CreateSession()
+	}
 	if err != nil {
 		return sessionErrorMsg{err: err}
 	}
@@ -330,6 +338,23 @@ func Run(ctx context.Context, socketPath string) error {
 	defer client.Close()
 
 	m := New(ctx, client)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	m.program.p = p
+	_, err = p.Run()
+	return err
+}
+
+// RunCode creates a code-mode Model and runs the Bubble Tea program.
+func RunCode(ctx context.Context, socketPath, workDir string) error {
+	client, err := chat.Connect(socketPath)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	m := New(ctx, client)
+	m.codeMode = true
+	m.workDir = workDir
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	m.program.p = p
 	_, err = p.Run()

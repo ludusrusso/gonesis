@@ -33,6 +33,8 @@ No database required. File-based state. One binary. Your keys, your data, your g
 
 ## How it works
 
+WildGecu operates in three primary modes: **Bootstrap**, **Chat**, and **Code**.
+
 ```
 First run:                              Every run after:
 
@@ -48,23 +50,27 @@ First run:                              Every run after:
 └──────┬──────────┘                     │  + USER + MEM   │
        │                                └──────┬──────────┘
        ▼                                       │
-┌─────────────────┐                            ▼
-│  Agent calls    │                     ┌─────────────────┐
-│  write_soul     │                     │    Chat TUI     │
-│  → .wildgecu/   │                     │  (normal mode)  │
-│    SOUL.md      │                     └──────┬──────────┘
-└──────┬──────────┘                            │
-       │                                       ▼
-       ▼                                ┌─────────────────┐
-    Chat TUI                            │ Memory curation │
-                                        │ → .wildgecu/    │
-                                        │   MEMORY.md     │
-                                        └─────────────────┘
+┌─────────────────┐              ┌─────────────┴─────────────┐
+│  Agent calls    │              ▼                           ▼
+│  write_soul     │      ┌─────────────────┐         ┌─────────────────┐
+│  → .wildgecu/   │      │    Chat TUI     │         │    Code TUI     │
+│    SOUL.md      │      │  (normal mode)  │         │  (working dir)  │
+└──────┬──────────┘      └──────┬──────────┘         └──────┬──────────┘
+       │                        │                           │
+       ▼                        └─────────────┬─────────────┘
+    Chat TUI                                  ▼
+                                     ┌─────────────────┐
+                                     │ Memory curation │
+                                     │ → .wildgecu/    │
+                                     │   MEMORY.md     │
+                                     └─────────────────┘
 ```
 
-**Bootstrap phase**: The agent receives a system prompt (`BOOTSTRAP.md`) that guides it to ask about your agent's name, purpose, personality, expertise, and boundaries. After a few exchanges, it calls the `write_soul` tool to persist its identity.
+**Bootstrap mode**: On first run, the agent receives a system prompt (`BOOTSTRAP.md`) that guides it to ask about your agent's name, purpose, personality, and expertise. After a few exchanges, it calls the `write_soul` tool to persist its identity in `.wildgecu/SOUL.md`.
 
-**Normal mode**: The system prompt is assembled from four parts — base behavior (`AGENT.md`), the agent's identity (`SOUL.md`), persistent memory (`MEMORY.md`), and optional user preferences (`USER.md`).
+**Chat mode (`wildgecu chat`)**: The default conversational mode. The system prompt is assembled from the base behavior (`AGENT.md`), the agent's identity (`SOUL.md`), and persistent memory (`MEMORY.md`).
+
+**Code mode (`wildgecu code`)**: A specialized mode focused on development. The agent uses a different system prompt (`CODE_AGENT.md`) and is equipped with file-system tools (read, write, list, update) and a bash environment scoped to the current working directory.
 
 **Memory curation**: After each session, a dedicated memory agent reviews the conversation and updates `MEMORY.md` — extracting key patterns, preferences, and context while keeping it concise.
 
@@ -88,12 +94,15 @@ On first run, the agent will start a bootstrap conversation to establish its ide
 
 ## CLI commands
 
-WildGecu is a single binary. Chat is the default command; daemon management is available as subcommands.
+WildGecu is a single binary. Chat is the default command; daemon management and specialized modes are available as subcommands.
 
 ```bash
 # Chat (default)
 wildgecu              # interactive chat session
 wildgecu chat         # same thing, explicit
+
+# Code Mode
+wildgecu code         # start a coding agent in the current directory
 
 # Daemon lifecycle
 wildgecu start        # start the background daemon

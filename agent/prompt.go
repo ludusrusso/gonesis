@@ -10,3 +10,6 @@ var bootstrapPrompt string
 
 //go:embed MEMORY_AGENT.md
 var memoryAgentPrompt string
+
+//go:embed CODE_AGENT.md
+var codeAgentPrompt string
