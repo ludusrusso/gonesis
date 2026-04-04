@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -168,6 +169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.streamIdx = len(m.display) - 1
 			m.streamContent = ""
 			m.loading = true
+			m.thinkingIdx = rand.Intn(len(thinkingVerbs))
 
 			prog := m.program
 			client := m.client
@@ -220,6 +222,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case toolCallMsg:
 		m.activeToolCall = msg.name
+		m.thinkingIdx = rand.Intn(len(thinkingVerbs))
 		label := msg.name
 		if msg.args != "" {
 			label += "(" + msg.args + ")"
@@ -264,7 +267,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.loading {
 			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
-			m.thinkingIdx = (m.thinkingIdx + 1) % len(thinkingVerbs)
 			cmds = append(cmds, cmd)
 		}
 	}
