@@ -25,7 +25,7 @@ func RemovePID() {
 	if err != nil {
 		return
 	}
-	os.Remove(path)
+	_ = os.Remove(path)
 }
 
 // ReadPID reads and returns the PID from the PID file.

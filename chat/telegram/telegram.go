@@ -74,7 +74,9 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	sessionID := b.getOrCreateSession(chatID)
 
 	// Send typing indicator
-	b.bot.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
+	if _, err := b.bot.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)); err != nil {
+		b.logger.Error("telegram send chat action error", "error", err)
+	}
 
 	// Send placeholder message
 	placeholder := tgbotapi.NewMessage(chatID, "...")
@@ -97,7 +99,9 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		if now.Sub(lastEdit) > time.Second && content != "" {
 			text := truncate(content, 4000)
 			edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
-			b.bot.Send(edit)
+			if _, editErr := b.bot.Send(edit); editErr != nil {
+				b.logger.Error("telegram edit message error", "error", editErr)
+			}
 			lastEdit = now
 		}
 	}
@@ -106,7 +110,9 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	if err != nil {
 		b.logger.Error("telegram turn error", "error", err, "chat_id", chatID)
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, fmt.Sprintf("Error: %v", err))
-		b.bot.Send(edit)
+		if _, err := b.bot.Send(edit); err != nil {
+			b.logger.Error("telegram edit error message failed", "error", err)
+		}
 		return
 	}
 
@@ -118,13 +124,17 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	// If response fits in one message, edit the placeholder
 	if len(finalContent) <= 4096 {
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, finalContent)
-		b.bot.Send(edit)
+		if _, err := b.bot.Send(edit); err != nil {
+			b.logger.Error("telegram final edit error", "error", err)
+		}
 		return
 	}
 
 	// Long response: edit placeholder with first chunk, send rest as new messages
 	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, finalContent[:4096])
-	b.bot.Send(edit)
+	if _, err := b.bot.Send(edit); err != nil {
+		b.logger.Error("telegram final edit error", "error", err)
+	}
 	b.sendMessages(chatID, finalContent[4096:])
 }
 
@@ -154,7 +164,7 @@ func (b *Bridge) sendMessages(chatID int64, text string) {
 	if text == "" {
 		return
 	}
-	for len(text) > 0 {
+	for text != "" {
 		chunk := text
 		if len(chunk) > 4096 {
 			chunk = text[:4096]

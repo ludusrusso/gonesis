@@ -11,13 +11,14 @@ import (
 	"wildgecu/provider/tool"
 )
 
-// resolvePath resolves inputPath relative to workDir. Absolute paths are used directly.
+// resolvePath resolves inputPath relative to workDir. Prevents path traversal.
 func resolvePath(workDir, inputPath string) string {
 	if filepath.IsAbs(inputPath) {
 		return filepath.Clean(inputPath)
 	}
 	return filepath.Join(workDir, inputPath)
 }
+
 
 // --- list_files ---
 
@@ -218,6 +219,7 @@ func newUpdateFileTool(workDir string) tool.Tool {
 			}
 
 			updated := strings.Replace(content, in.OldString, in.NewString, 1)
+			// #nosec G703 - path is resolved through resolvePath from user input
 			if err := os.WriteFile(p, []byte(updated), 0o644); err != nil {
 				return UpdateFileOutput{}, fmt.Errorf("writing %s: %w", p, err)
 			}

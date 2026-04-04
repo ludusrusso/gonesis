@@ -48,7 +48,7 @@ func Connect(socketPath string) (*Client, error) {
 
 // CreateSession asks the daemon to create a new chat session.
 // Returns the session ID and the welcome text.
-func (c *Client) CreateSession() (sessionID string, welcome string, err error) {
+func (c *Client) CreateSession() (sessionID, welcome string, err error) {
 	if err := c.encoder.Encode(request{Type: "session.create"}); err != nil {
 		return "", "", fmt.Errorf("send session.create: %w", err)
 	}
@@ -64,7 +64,7 @@ func (c *Client) CreateSession() (sessionID string, welcome string, err error) {
 
 // CreateCodeSession asks the daemon to create a new code-mode session.
 // Returns the session ID and the welcome text.
-func (c *Client) CreateCodeSession(workDir string) (sessionID string, welcome string, err error) {
+func (c *Client) CreateCodeSession(workDir string) (sessionID, welcome string, err error) {
 	if err := c.encoder.Encode(request{Type: "session.create", Mode: "code", WorkDir: workDir}); err != nil {
 		return "", "", fmt.Errorf("send session.create (code): %w", err)
 	}

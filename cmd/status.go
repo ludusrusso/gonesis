@@ -71,7 +71,7 @@ func statusCmd() *cobra.Command {
 					}
 					fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", c.Name, c.Schedule, c.NextRun, lastRun)
 				}
-				w.Flush()
+				_ = w.Flush()
 			}
 
 			return nil

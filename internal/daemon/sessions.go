@@ -140,7 +140,7 @@ type OnToolCallFunc func(name string, args string)
 
 // RunTurnStream runs a single conversational turn with streaming callbacks.
 // It locks the session for the duration.
-func (sm *SessionManager) RunTurnStream(ctx context.Context, id string, input string, onChunk OnChunkFunc, onToolCall OnToolCallFunc) (string, error) {
+func (sm *SessionManager) RunTurnStream(ctx context.Context, id, input string, onChunk OnChunkFunc, onToolCall OnToolCallFunc) (string, error) {
 	sess := sm.Get(id)
 	if sess == nil {
 		return "", fmt.Errorf("session not found: %s", id)
@@ -189,7 +189,7 @@ func (sm *SessionManager) RunTurnStream(ctx context.Context, id string, input st
 
 // RunTurnStreamRaw is like RunTurnStream but uses plain function types instead
 // of named callback types, making it usable as a telegram.SessionProvider method.
-func (sm *SessionManager) RunTurnStreamRaw(ctx context.Context, id string, input string, onChunk func(string), onToolCall func(string, string)) (string, error) {
+func (sm *SessionManager) RunTurnStreamRaw(ctx context.Context, id, input string, onChunk func(string), onToolCall func(string, string)) (string, error) {
 	var chunkCb OnChunkFunc
 	if onChunk != nil {
 		chunkCb = OnChunkFunc(onChunk)

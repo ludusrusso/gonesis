@@ -145,12 +145,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC:
 			m.quitting = true
 			if m.sessionID != "" {
-				m.client.CloseSession(m.sessionID)
+				_ = m.client.CloseSession(m.sessionID)
 			}
 			return m, tea.Quit
 		case tea.KeyEsc:
 			if m.loading && m.sessionID != "" {
-				m.client.InterruptSession(m.sessionID)
+				_ = m.client.InterruptSession(m.sessionID)
 			}
 			return m, nil
 		case tea.KeyEnter:
@@ -323,17 +323,19 @@ func (m Model) View() string {
 	b.WriteString("\n")
 
 	// Status line or text input.
-	if m.sessionID == "" {
+	switch {
+	case m.sessionID == "":
 		fmt.Fprintf(&b, "%s Connecting...", m.spinner.View())
-	} else if m.loading {
-		if m.streamContent != "" {
+	case m.loading:
+		switch {
+		case m.streamContent != "":
 			fmt.Fprintf(&b, "%s Streaming...", m.spinner.View())
-		} else if m.activeToolCall != "" {
+		case m.activeToolCall != "":
 			fmt.Fprintf(&b, "%s %s", m.spinner.View(), toolStyle.Render("Running tool: "+m.activeToolCall+"..."))
-		} else {
+		default:
 			fmt.Fprintf(&b, "%s %s...", m.spinner.View(), thinkingVerbs[m.thinkingIdx])
 		}
-	} else {
+	default:
 		b.WriteString(m.textinput.View())
 	}
 
@@ -353,7 +355,9 @@ func Run(ctx context.Context, socketPath string) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	m := New(ctx, client)
 	p := tea.NewProgram(m, tea.WithAltScreen())
@@ -368,7 +372,9 @@ func RunCode(ctx context.Context, socketPath, workDir string) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	m := New(ctx, client)
 	m.codeMode = true

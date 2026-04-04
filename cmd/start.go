@@ -42,7 +42,7 @@ func startCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&system, "system", false, "Run as a system service")
 	cmd.Flags().BoolVar(&isDaemon, "daemon", false, "Run in daemon mode (internal)")
-	cmd.Flags().MarkHidden("daemon")
+	_ = cmd.Flags().MarkHidden("daemon")
 	return cmd
 }
 

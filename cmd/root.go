@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"wildgecu/x/config"
@@ -50,19 +49,9 @@ func initConfig() {
 		}
 	}
 
-	viper.BindEnv("gemini_api_key", "GEMINI_API_KEY")
+	_ = viper.BindEnv("gemini_api_key", "GEMINI_API_KEY")
 	viper.AutomaticEnv()
 
-	viper.ReadInConfig()
+	_ = viper.ReadInConfig()
 }
 
-func ensureConfigFile() error {
-	path, created, err := config.EnsureConfigFile(viper.ConfigFileUsed())
-	if err != nil {
-		return err
-	}
-	if created {
-		fmt.Printf("Created default config at %s\n", path)
-	}
-	return nil
-}

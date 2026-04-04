@@ -37,7 +37,9 @@ func (s *SocketServer) handleChatConnection(conn net.Conn, firstReq *ChatRequest
 	send := func(ev ChatEvent) {
 		encoderMu.Lock()
 		defer encoderMu.Unlock()
-		encoder.Encode(ev)
+		if err := encoder.Encode(ev); err != nil {
+			logger.Error("encode chat event error", "error", err)
+		}
 	}
 
 	// Process the first request (already decoded by the dispatcher).

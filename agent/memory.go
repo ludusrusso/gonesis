@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -55,7 +56,7 @@ func RunMemoryAgent(ctx context.Context, p provider.Provider, home homer.Homer, 
 	}
 
 	_, _, err := provider.RunAgentLoop(ctx, p, memoryAgentPrompt, msgs, registry.Tools(), registry.Executor(), nil, nil)
-	if err != nil && err != provider.ErrDone {
+	if err != nil && !errors.Is(err, provider.ErrDone) {
 		return fmt.Errorf("memory agent: %w", err)
 	}
 	return nil

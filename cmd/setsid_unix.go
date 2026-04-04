@@ -25,6 +25,6 @@ func reExecDetached() error {
 	}
 
 	fmt.Printf("Daemon started (pid %d).\n", cmd.Process.Pid)
-	cmd.Process.Release()
+	_ = cmd.Process.Release()
 	return nil
 }

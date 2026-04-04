@@ -54,8 +54,8 @@ func (t *typedTool[In, Out]) Execute(ctx context.Context, args map[string]any) (
 	}
 
 	var in In
-	if err := json.Unmarshal(raw, &in); err != nil {
-		return fmt.Sprintf(`{"error": %q}`, err.Error()), nil
+	if unmErr := json.Unmarshal(raw, &in); unmErr != nil {
+		return fmt.Sprintf(`{"error": %q}`, unmErr.Error()), nil
 	}
 
 	out, err := t.handler(ctx, in)
@@ -65,9 +65,9 @@ func (t *typedTool[In, Out]) Execute(ctx context.Context, args map[string]any) (
 		return string(b), err
 	}
 
-	b, err := json.Marshal(out)
-	if err != nil {
-		return fmt.Sprintf(`{"error": %q}`, err.Error()), nil
+	b, mErr := json.Marshal(out)
+	if mErr != nil {
+		return fmt.Sprintf(`{"error": %q}`, mErr.Error()), nil
 	}
 	return string(b), nil
 }

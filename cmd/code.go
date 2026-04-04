@@ -26,7 +26,7 @@ func runCode(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("resolve socket path: %w", err)
 	}
-	if _, err := os.Stat(socketPath); err != nil {
+	if _, statErr := os.Stat(socketPath); statErr != nil {
 		return fmt.Errorf("daemon not running, start it with: wildgecu start")
 	}
 

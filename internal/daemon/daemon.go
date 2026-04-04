@@ -233,7 +233,7 @@ func Run(ctx context.Context, cfg Config) error {
 }
 
 // initSessionManager creates the agent config and initializes the session manager.
-func initSessionManager(ctx context.Context, cfg Config, logger *slog.Logger) (*SessionManager, error) {
+func initSessionManager(ctx context.Context, cfg Config, _ *slog.Logger) (*SessionManager, error) {
 	globalHome, err := config.GlobalHome()
 	if err != nil {
 		return nil, fmt.Errorf("global home: %w", err)

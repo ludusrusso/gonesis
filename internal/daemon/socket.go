@@ -33,14 +33,14 @@ func NewSocketServer(logger *slog.Logger) (*SocketServer, error) {
 	}
 
 	// Remove stale socket if present.
-	os.Remove(path)
+	_ = os.Remove(path)
 
 	ln, err := net.Listen("unix", path)
 	if err != nil {
 		return nil, err
 	}
 	if err := os.Chmod(path, 0o600); err != nil {
-		ln.Close()
+		_ = ln.Close()
 		return nil, err
 	}
 
@@ -68,7 +68,7 @@ func (s *SocketServer) Serve(ctx context.Context) {
 
 	go func() {
 		<-ctx.Done()
-		s.listener.Close()
+		_ = s.listener.Close()
 	}()
 
 	for {
@@ -90,15 +90,15 @@ func (s *SocketServer) Serve(ctx context.Context) {
 
 // Close cleans up the socket file and closes the listener.
 func (s *SocketServer) Close() {
-	s.listener.Close()
+	_ = s.listener.Close()
 	s.wg.Wait()
-	os.Remove(s.path)
+	_ = os.Remove(s.path)
 }
 
 // handleConnection reads the first JSON message to determine the protocol:
 // - If it has a "type" field starting with "session.", it's a NDJSON chat connection.
 // - Otherwise, it's a legacy command request.
-func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
+func (s *SocketServer) handleConnection(_ context.Context, conn net.Conn) {
 	defer conn.Close()
 
 	// Peek at the first JSON object to decide the protocol.
@@ -124,11 +124,16 @@ func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 		// NDJSON chat protocol.
 		if s.sessions == nil {
 			encoder := json.NewEncoder(conn)
-			encoder.Encode(ChatEvent{Type: "error", Message: "session manager not available"})
+			if err := encoder.Encode(ChatEvent{Type: "error", Message: "session manager not available"}); err != nil {
+				s.logger.Error("encode error event", "error", err)
+			}
 			return
 		}
 		var chatReq ChatRequest
-		json.Unmarshal(raw, &chatReq)
+		if err := json.Unmarshal(raw, &chatReq); err != nil {
+			s.logger.Error("unmarshal chat request", "error", err)
+			return
+		}
 		// handleChatConnection takes over the connection (long-lived).
 		// We create a new decoder from the conn since the old one already consumed the buffered data.
 		s.handleChatConnection(conn, &chatReq, s.sessions, s.logger)
@@ -145,7 +150,9 @@ func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 	handler, ok := s.handlers[req.Cmd]
 	if !ok {
 		resp := &Response{OK: false, Error: "unknown command: " + req.Cmd}
-		json.NewEncoder(conn).Encode(resp)
+		if err := json.NewEncoder(conn).Encode(resp); err != nil {
+			s.logger.Error("encode response error", "error", err)
+		}
 		return
 	}
 
@@ -153,5 +160,7 @@ func (s *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 	if err != nil {
 		resp = &Response{OK: false, Error: err.Error()}
 	}
-	json.NewEncoder(conn).Encode(resp)
+	if err := json.NewEncoder(conn).Encode(resp); err != nil {
+		s.logger.Error("encode response error", "error", err)
+	}
 }

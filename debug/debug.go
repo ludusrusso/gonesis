@@ -23,8 +23,8 @@ func New() (*Logger, error) {
 	}
 
 	dir := filepath.Join(home, ".wildgecu", "debug")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, fmt.Errorf("debug: create dir: %w", err)
+	if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+		return nil, fmt.Errorf("debug: create dir: %w", mkErr)
 	}
 
 	ts := time.Now().Format("2006-01-02T15-04-05")
@@ -80,12 +80,12 @@ func (l *Logger) ToolCall(name string, args map[string]any) {
 }
 
 // ToolResult logs a tool execution result.
-func (l *Logger) ToolResult(name string, result string) {
+func (l *Logger) ToolResult(name, result string) {
 	l.write("### Tool Result: `%s`\n\n```\n%s\n```\n\n", name, result)
 }
 
 // GenerateRequest logs when a generate request is made to the provider.
-func (l *Logger) GenerateRequest(msgCount int, toolCount int) {
+func (l *Logger) GenerateRequest(msgCount, toolCount int) {
 	l.write("---\n\n> Generate request: %d messages, %d tools\n\n", msgCount, toolCount)
 }
 
