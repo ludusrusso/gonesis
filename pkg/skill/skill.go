@@ -128,7 +128,7 @@ func LoadAll(dir string) ([]*Skill, []error) {
 }
 
 // Load loads a single skill by name from a directory.
-func Load(dir string, name string) (*Skill, error) {
+func Load(dir, name string) (*Skill, error) {
 	data, err := os.ReadFile(filepath.Join(dir, name, SkillFile))
 	if err != nil {
 		return nil, fmt.Errorf("skill: load %s: %w", name, err)
@@ -151,6 +151,6 @@ func Save(dir string, s *Skill) error {
 
 // Delete removes a skill directory. It is idempotent — no error if the skill
 // does not exist.
-func Delete(dir string, name string) error {
+func Delete(dir, name string) error {
 	return os.RemoveAll(filepath.Join(dir, name))
 }

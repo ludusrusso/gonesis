@@ -35,8 +35,8 @@ func (f *FSFile) Write(content string) error {
 	return os.WriteFile(f.path, []byte(content), 0o644)
 }
 
-func (f *FSFile) Replace(old, new string) error {
-	data, err := os.ReadFile(f.path)
+func (f *FSFile) Replace(old, replacement string) error {
+	data, err := os.ReadFile(f.path) //nolint:gosec // path is not user-controlled
 	if os.IsNotExist(err) {
 		return ErrNotFound
 	}
@@ -53,6 +53,6 @@ func (f *FSFile) Replace(old, new string) error {
 		return ErrNotUnique
 	}
 
-	replaced := strings.Replace(content, old, new, 1)
-	return os.WriteFile(f.path, []byte(replaced), 0o644)
+	replaced := strings.Replace(content, old, replacement, 1)
+	return os.WriteFile(f.path, []byte(replaced), 0o644) //nolint:gosec // path is not user-controlled
 }

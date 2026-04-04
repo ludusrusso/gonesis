@@ -124,7 +124,7 @@ func PrepareCode(ctx context.Context, cfg Config, workDir string) (*session.Conf
 	return codeCfg, dbg, nil
 }
 
-func loadTools(skillsDir string, homeDir string) *tool.Registry {
+func loadTools(skillsDir, homeDir string) *tool.Registry {
 	tools := []tool.Tool{getCurrentTimeTool, newBashTool(homeDir), newNodeTool(homeDir)}
 	if skillsDir != "" {
 		tools = append(tools, newLoadSkillTool(skillsDir))
@@ -132,7 +132,7 @@ func loadTools(skillsDir string, homeDir string) *tool.Registry {
 	return tool.NewRegistry(tools...)
 }
 
-func loadCodeTools(skillsDir string, workDir string) *tool.Registry {
+func loadCodeTools(skillsDir, workDir string) *tool.Registry {
 	tools := []tool.Tool{
 		getCurrentTimeTool,
 		newBashTool(workDir),

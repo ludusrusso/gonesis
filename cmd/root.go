@@ -54,8 +54,8 @@ func initConfig() {
 		viper.SetConfigName("wildgecu")
 		viper.SetConfigType("yaml")
 
-		if home, err := config.GlobalHome(); err == nil {
-			viper.AddConfigPath(home)
+		if homeDir, err := config.GlobalHome(); err == nil {
+			viper.AddConfigPath(homeDir)
 		}
 	}
 

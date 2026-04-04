@@ -15,5 +15,5 @@ var ErrOldNotFound = errors.New("old string not found")
 type File interface {
 	Get() (string, error)              // returns ("", nil) when the file does not exist
 	Write(content string) error        // creates or overwrites the file
-	Replace(old, new string) error     // errors if old is not found or appears more than once
+	Replace(old, replacement string) error // errors if old is not found or appears more than once
 }

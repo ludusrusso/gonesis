@@ -89,7 +89,6 @@ func RunFileSpec(t *testing.T, f File) {
 			t.Fatalf("expected content unchanged, got %q", got)
 		}
 	})
-
 }
 
 // RunFileSpecReplaceMissing tests Replace on a file that does not exist.
