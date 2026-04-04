@@ -2,9 +2,10 @@ package tui
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -169,7 +170,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.streamIdx = len(m.display) - 1
 			m.streamContent = ""
 			m.loading = true
-			m.thinkingIdx = rand.Intn(len(thinkingVerbs))
+			n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(thinkingVerbs))))
+			m.thinkingIdx = int(n.Int64())
 
 			prog := m.program
 			client := m.client
@@ -222,7 +224,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case toolCallMsg:
 		m.activeToolCall = msg.name
-		m.thinkingIdx = rand.Intn(len(thinkingVerbs))
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(thinkingVerbs))))
+		m.thinkingIdx = int(n.Int64())
 		label := msg.name
 		if msg.args != "" {
 			label += "(" + msg.args + ")"

@@ -105,7 +105,7 @@ func RunHomeSpec(t *testing.T, h Home) {
 		if err != nil {
 			t.Fatalf("Sub failed: %v", err)
 		}
-		if err := sub.Upsert("inner.txt", []byte("inner")); err != nil {
+		if err = sub.Upsert("inner.txt", []byte("inner")); err != nil {
 			t.Fatalf("Sub Upsert failed: %v", err)
 		}
 		got, err := sub.Get("inner.txt")
