@@ -9,7 +9,6 @@ import (
 
 	"wildgecu/pkg/cron"
 	"wildgecu/pkg/daemon"
-	"wildgecu/x/config"
 
 	"github.com/spf13/cobra"
 )
@@ -22,11 +21,11 @@ func init() {
 }
 
 func cronsDir() (string, error) {
-	globalHome, err := config.GlobalHome()
+	h, err := newHome()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(globalHome, "crons"), nil
+	return h.CronsDir(), nil
 }
 
 func cronCmd() *cobra.Command {

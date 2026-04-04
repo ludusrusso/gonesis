@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 
+	"wildgecu/pkg/home"
 	"wildgecu/x/config"
 
 	"github.com/spf13/cobra"
@@ -31,6 +32,15 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default: ./wildgecu.yaml)")
 	rootCmd.Flags().BoolVar(&debugFlag, "debug", false, "enable debug logging to ~/.wildgecu/debug/<timestamp>.md")
+}
+
+// newHome creates a *home.Home rooted at the global home directory.
+func newHome() (*home.Home, error) {
+	dir, err := config.GlobalHome()
+	if err != nil {
+		return nil, err
+	}
+	return home.New(dir)
 }
 
 func initConfig() {

@@ -3,12 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
 	"wildgecu/pkg/skill"
-	"wildgecu/x/config"
 
 	"github.com/spf13/cobra"
 )
@@ -21,11 +19,11 @@ func init() {
 }
 
 func skillsDir() (string, error) {
-	globalHome, err := config.GlobalHome()
+	h, err := newHome()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(globalHome, "skills")
+	dir := h.SkillsDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
