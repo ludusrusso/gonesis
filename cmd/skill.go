@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"text/tabwriter"
 
@@ -26,7 +25,11 @@ func skillsHome() (home.Home, error) {
 	if err != nil {
 		return nil, err
 	}
-	return home.New(filepath.Join(globalHome, "skills"))
+	h, err := home.New(globalHome)
+	if err != nil {
+		return nil, err
+	}
+	return h.Sub("skills")
 }
 
 func skillCmd() *cobra.Command {
@@ -85,7 +88,7 @@ func skillRmCmd() *cobra.Command {
 			}
 
 			name := args[0]
-			if err := h.Delete(skill.Filename(name)); err != nil {
+			if err := h.DeleteDir(name); err != nil {
 				return fmt.Errorf("delete skill %q: %w", name, err)
 			}
 

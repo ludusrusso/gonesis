@@ -249,17 +249,11 @@ func initSessionManager(ctx context.Context, cfg Config, _ *slog.Logger) (*Sessi
 		return nil, fmt.Errorf("gemini provider: %w", err)
 	}
 
-	skillsHome, err := home.New(filepath.Join(globalHome, "skills"))
-	if err != nil {
-		return nil, fmt.Errorf("skills home: %w", err)
-	}
-
 	agentCfg := agent.Config{
-		Provider:   p,
-		Home:       homeFS,
-		Workspace:  homeFS, // daemon uses global home as workspace
-		SkillsHome: skillsHome,
-		HomeDir:    globalHome,
+		Provider:  p,
+		Home:      homeFS,
+		Workspace: homeFS, // daemon uses global home as workspace
+		HomeDir:   globalHome,
 	}
 
 	return NewSessionManager(ctx, agentCfg)

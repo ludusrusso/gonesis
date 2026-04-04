@@ -100,6 +100,74 @@ func RunHomeSpec(t *testing.T, h Home) {
 		}
 	})
 
+	t.Run("Sub creates scoped Home", func(t *testing.T) {
+		sub, err := h.Sub("subdir")
+		if err != nil {
+			t.Fatalf("Sub failed: %v", err)
+		}
+		if err := sub.Upsert("inner.txt", []byte("inner")); err != nil {
+			t.Fatalf("Sub Upsert failed: %v", err)
+		}
+		got, err := sub.Get("inner.txt")
+		if err != nil {
+			t.Fatalf("Sub Get failed: %v", err)
+		}
+		if string(got) != "inner" {
+			t.Fatalf("expected %q, got %q", "inner", got)
+		}
+	})
+
+	t.Run("Upsert creates intermediate directories", func(t *testing.T) {
+		if err := h.Upsert("nested/dir/file.txt", []byte("deep")); err != nil {
+			t.Fatalf("Upsert nested failed: %v", err)
+		}
+		got, err := h.Get("nested/dir/file.txt")
+		if err != nil {
+			t.Fatalf("Get nested failed: %v", err)
+		}
+		if string(got) != "deep" {
+			t.Fatalf("expected %q, got %q", "deep", got)
+		}
+	})
+
+	t.Run("ListDirs returns subdirectories", func(t *testing.T) {
+		// "subdir" and "nested" were created above
+		dirs, err := h.ListDirs()
+		if err != nil {
+			t.Fatalf("ListDirs failed: %v", err)
+		}
+		found := map[string]bool{}
+		for _, d := range dirs {
+			found[d] = true
+		}
+		if !found["subdir"] || !found["nested"] {
+			t.Fatalf("expected subdir and nested in dirs, got %v", dirs)
+		}
+	})
+
+	t.Run("DeleteDir removes directory", func(t *testing.T) {
+		if err := h.Upsert("todelete/file1.txt", []byte("a")); err != nil {
+			t.Fatalf("Upsert failed: %v", err)
+		}
+		if err := h.Upsert("todelete/file2.txt", []byte("b")); err != nil {
+			t.Fatalf("Upsert failed: %v", err)
+		}
+		if err := h.DeleteDir("todelete"); err != nil {
+			t.Fatalf("DeleteDir failed: %v", err)
+		}
+		_, err := h.Get("todelete/file1.txt")
+		if !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound after DeleteDir, got %v", err)
+		}
+	})
+
+	t.Run("DeleteDir missing returns ErrNotFound", func(t *testing.T) {
+		err := h.DeleteDir("nonexistent-dir")
+		if !errors.Is(err, ErrNotFound) {
+			t.Fatalf("expected ErrNotFound, got %v", err)
+		}
+	})
+
 	t.Run("Search multiple matches returns all", func(t *testing.T) {
 		if err := h.Upsert("a.txt", []byte("a")); err != nil {
 			t.Fatalf("Upsert failed: %v", err)

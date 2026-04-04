@@ -3,12 +3,16 @@ package skill
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"wildgecu/x/home"
 
 	"go.yaml.in/yaml/v3"
 )
+
+// SkillFile is the standard filename for a skill definition.
+const SkillFile = "SKILL.md"
 
 // Skill represents a domain-specific knowledge file.
 type Skill struct {
@@ -87,31 +91,32 @@ func Serialize(s *Skill) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Filename returns the markdown filename for a skill name.
-func Filename(name string) string {
-	return name + ".md"
+// SkillPath returns the path to a skill's SKILL.md file within the skills home.
+func SkillPath(name string) string {
+	return filepath.Join(name, SkillFile)
 }
 
 // LoadAll loads all skills from a home directory.
+// Each skill is expected to be a subdirectory containing a SKILL.md file.
 // It returns all successfully parsed skills and any errors encountered.
 func LoadAll(h home.Home) ([]*Skill, []error) {
-	files, err := h.Search("*.md")
+	dirs, err := h.ListDirs()
 	if err != nil {
-		return nil, []error{fmt.Errorf("skill: search: %w", err)}
+		return nil, []error{fmt.Errorf("skill: list dirs: %w", err)}
 	}
 
 	var skills []*Skill
 	var errs []error
 
-	for _, f := range files {
-		data, err := h.Get(f)
+	for _, dir := range dirs {
+		data, err := h.Get(SkillPath(dir))
 		if err != nil {
-			errs = append(errs, fmt.Errorf("skill: read %s: %w", f, err))
+			// Skip directories without SKILL.md (not an error)
 			continue
 		}
 		s, err := Parse(data)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("skill: %s: %w", f, err))
+			errs = append(errs, fmt.Errorf("skill: %s: %w", dir, err))
 			continue
 		}
 		skills = append(skills, s)
@@ -122,7 +127,7 @@ func LoadAll(h home.Home) ([]*Skill, []error) {
 
 // Load loads a single skill by name from a home directory.
 func Load(h home.Home, name string) (*Skill, error) {
-	data, err := h.Get(Filename(name))
+	data, err := h.Get(SkillPath(name))
 	if err != nil {
 		return nil, fmt.Errorf("skill: load %s: %w", name, err)
 	}

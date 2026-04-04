@@ -40,7 +40,11 @@ func (h *FSHome) Search(pattern string) ([]string, error) {
 }
 
 func (h *FSHome) Upsert(name string, data []byte) error {
-	return os.WriteFile(filepath.Join(h.dir, name), data, 0o644)
+	path := filepath.Join(h.dir, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }
 
 func (h *FSHome) Delete(name string) error {
@@ -49,4 +53,37 @@ func (h *FSHome) Delete(name string) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+func (h *FSHome) Sub(name string) (Home, error) {
+	return New(filepath.Join(h.dir, name))
+}
+
+func (h *FSHome) ListDirs() ([]string, error) {
+	entries, err := os.ReadDir(h.dir)
+	if err != nil {
+		return nil, err
+	}
+	var dirs []string
+	for _, e := range entries {
+		if e.IsDir() {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	return dirs, nil
+}
+
+func (h *FSHome) DeleteDir(name string) error {
+	path := filepath.Join(h.dir, name)
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("not a directory: %s", name)
+	}
+	return os.RemoveAll(path)
 }

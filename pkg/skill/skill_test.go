@@ -112,18 +112,19 @@ func TestSerializeNoTags(t *testing.T) {
 	}
 }
 
-func TestFilename(t *testing.T) {
-	if got := Filename("go-errors"); got != "go-errors.md" {
-		t.Errorf("expected go-errors.md, got %q", got)
+func TestSkillPath(t *testing.T) {
+	got := SkillPath("go-errors")
+	if got != "go-errors/SKILL.md" {
+		t.Errorf("expected go-errors/SKILL.md, got %q", got)
 	}
 }
 
 func TestLoadAll(t *testing.T) {
 	h := home.NewMem()
 
-	h.Upsert("good.md", []byte("---\nname: good\ndescription: A good skill\n---\nGood content"))
-	h.Upsert("bad.md", []byte("---\nname: bad\n---\nmissing description"))
-	h.Upsert("also-good.md", []byte("---\nname: also-good\ndescription: Another good skill\ntags:\n  - test\n---\nMore content"))
+	h.Upsert("good/SKILL.md", []byte("---\nname: good\ndescription: A good skill\n---\nGood content"))
+	h.Upsert("bad/SKILL.md", []byte("---\nname: bad\n---\nmissing description"))
+	h.Upsert("also-good/SKILL.md", []byte("---\nname: also-good\ndescription: Another good skill\ntags:\n  - test\n---\nMore content"))
 
 	skills, errs := LoadAll(h)
 
@@ -133,8 +134,27 @@ func TestLoadAll(t *testing.T) {
 	if len(errs) != 1 {
 		t.Fatalf("expected 1 error, got %d", len(errs))
 	}
-	if !strings.Contains(errs[0].Error(), "bad.md") {
-		t.Errorf("expected error about bad.md, got %q", errs[0])
+	if !strings.Contains(errs[0].Error(), "bad") {
+		t.Errorf("expected error about bad, got %q", errs[0])
+	}
+}
+
+func TestLoadAllSkipsDirsWithoutSkillMD(t *testing.T) {
+	h := home.NewMem()
+
+	h.Upsert("valid/SKILL.md", []byte("---\nname: valid\ndescription: Valid skill\n---\nContent"))
+	h.Upsert("noskill/other.txt", []byte("not a skill"))
+
+	skills, errs := LoadAll(h)
+
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(skills))
+	}
+	if len(errs) != 0 {
+		t.Fatalf("expected 0 errors, got %d", len(errs))
+	}
+	if skills[0].Name != "valid" {
+		t.Errorf("expected skill name 'valid', got %q", skills[0].Name)
 	}
 }
 
@@ -151,7 +171,7 @@ func TestLoadAllEmpty(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	h := home.NewMem()
-	h.Upsert("my-skill.md", []byte("---\nname: my-skill\ndescription: Test skill\n---\nContent here"))
+	h.Upsert("my-skill/SKILL.md", []byte("---\nname: my-skill\ndescription: Test skill\n---\nContent here"))
 
 	s, err := Load(h, "my-skill")
 	if err != nil {

@@ -205,7 +205,7 @@ func (m skillAddModel) save() tea.Cmd {
 			return skillSaveResultMsg{err: err}
 		}
 
-		if err := h.Upsert(skill.Filename(s.Name), data); err != nil {
+		if err := h.Upsert(skill.SkillPath(s.Name), data); err != nil {
 			return skillSaveResultMsg{err: err}
 		}
 
