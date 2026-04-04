@@ -119,15 +119,8 @@ func Run(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("global home: %w", err)
 		}
 
-		cronsHome, err := home.New(filepath.Join(globalHome, "crons"))
-		if err != nil {
-			return fmt.Errorf("crons home: %w", err)
-		}
-
-		resultsHome, err := home.New(filepath.Join(globalHome, "cron-results"))
-		if err != nil {
-			return fmt.Errorf("cron-results home: %w", err)
-		}
+		cronsDir := filepath.Join(globalHome, "crons")
+		resultsDir := filepath.Join(globalHome, "cron-results")
 
 		p, err := gemini.New(ctx, cfg.APIKey, cfg.Model)
 		if err != nil {
@@ -136,11 +129,11 @@ func Run(ctx context.Context, cfg Config) error {
 
 		execCfg := &cron.ExecutorConfig{
 			Provider: p,
-			Results:  resultsHome,
+			Results:  resultsDir,
 			Logger:   logger,
 		}
 
-		scheduler, err = cron.NewScheduler(cronsHome, execCfg, logger)
+		scheduler, err = cron.NewScheduler(cronsDir, execCfg, logger)
 		if err != nil {
 			return fmt.Errorf("cron scheduler: %w", err)
 		}
