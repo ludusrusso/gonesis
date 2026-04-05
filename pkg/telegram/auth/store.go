@@ -41,7 +41,10 @@ func New(path string) (*Store, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return s, s.persist()
+			if pErr := s.persist(); pErr != nil {
+				return nil, pErr
+			}
+			return s, nil
 		}
 		return nil, fmt.Errorf("read telegram auth: %w", err)
 	}
@@ -93,18 +96,19 @@ func (s *Store) ApproveByOTP(otp string) (int64, error) {
 	defer s.mu.Unlock()
 
 	for key, v := range s.data.PendingOTPs {
-		if v == otp {
-			userID, err := strconv.ParseInt(key, 10, 64)
-			if err != nil {
-				return 0, fmt.Errorf("parse user id: %w", err)
-			}
-			s.data.AllowedUsers = append(s.data.AllowedUsers, userID)
-			delete(s.data.PendingOTPs, key)
-			if err := s.persist(); err != nil {
-				return 0, err
-			}
-			return userID, nil
+		if v != otp {
+			continue
 		}
+		userID, err := strconv.ParseInt(key, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parse user id: %w", err)
+		}
+		s.data.AllowedUsers = append(s.data.AllowedUsers, userID)
+		delete(s.data.PendingOTPs, key)
+		if err := s.persist(); err != nil {
+			return 0, err
+		}
+		return userID, nil
 	}
 
 	return 0, ErrInvalidOTP
@@ -125,17 +129,17 @@ func (s *Store) persist() error {
 	}
 
 	if _, err := tmp.Write(raw); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("write temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name())
+		_ = os.Remove(tmp.Name())
 		return err
 	}
 
 	if err := os.Rename(tmp.Name(), s.path); err != nil {
-		os.Remove(tmp.Name())
+		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("rename temp file: %w", err)
 	}
 	return nil

@@ -131,12 +131,12 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	onInform := func(message string) {
 		b.logger.Info("telegram inform", "message", message)
 		inform := tgbotapi.NewMessage(chatID, "ℹ️ "+message)
-		if _, err := b.bot.Send(inform); err != nil {
-			b.logger.Error("telegram inform message error", "error", err)
+		if _, sendErr := b.bot.Send(inform); sendErr != nil {
+			b.logger.Error("telegram inform message error", "error", sendErr)
 		}
 		// Refresh typing indicator as sending a message clears it
-		if _, err := b.bot.Request(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)); err != nil {
-			b.logger.Debug("telegram refresh chat action error", "error", err)
+		if _, actErr := b.bot.Request(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)); actErr != nil {
+			b.logger.Debug("telegram refresh chat action error", "error", actErr)
 		}
 	}
 

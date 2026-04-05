@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -199,7 +200,7 @@ func TestApproveByOTP(t *testing.T) {
 		}
 
 		_, err = s.ApproveByOTP("NOPE00")
-		if err != ErrInvalidOTP {
+		if !errors.Is(err, ErrInvalidOTP) {
 			t.Errorf("expected ErrInvalidOTP, got %v", err)
 		}
 	})
@@ -212,13 +213,14 @@ func TestApproveByOTP(t *testing.T) {
 		}
 
 		otp := s.GetOrCreateOTP(42)
-		if _, err := s.ApproveByOTP(otp); err != nil {
-			t.Fatal(err)
+		_, approveErr := s.ApproveByOTP(otp)
+		if approveErr != nil {
+			t.Fatal(approveErr)
 		}
 
 		// Same OTP should now fail
 		_, err = s.ApproveByOTP(otp)
-		if err != ErrInvalidOTP {
+		if !errors.Is(err, ErrInvalidOTP) {
 			t.Errorf("expected ErrInvalidOTP on reuse, got %v", err)
 		}
 	})
@@ -231,8 +233,9 @@ func TestApproveByOTP(t *testing.T) {
 		}
 
 		otp := s.GetOrCreateOTP(42)
-		if _, err := s.ApproveByOTP(otp); err != nil {
-			t.Fatal(err)
+		_, approveErr := s.ApproveByOTP(otp)
+		if approveErr != nil {
+			t.Fatal(approveErr)
 		}
 
 		// Reload from disk
@@ -245,7 +248,7 @@ func TestApproveByOTP(t *testing.T) {
 		}
 		// OTP should be gone
 		_, err = s2.ApproveByOTP(otp)
-		if err != ErrInvalidOTP {
+		if !errors.Is(err, ErrInvalidOTP) {
 			t.Errorf("expected OTP to be consumed after reload, got %v", err)
 		}
 	})
