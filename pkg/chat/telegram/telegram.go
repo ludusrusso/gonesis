@@ -133,7 +133,7 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 			}
 			// Skill commands run a streaming LLM turn.
 			if runner, ok := cmd.(command.SkillRunner); ok {
-				b.handleSkillCommand(ctx, chatID, runner, args)
+				b.handleSkillCommand(ctx, chatID, runner, msg.Text)
 				return
 			}
 			// Inject session ID for session-aware commands like /clean.

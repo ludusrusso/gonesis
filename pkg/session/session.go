@@ -21,13 +21,15 @@ type Config struct {
 }
 
 // RunTurn appends a user message to the conversation and runs one agent loop.
-// It returns the updated messages and the model's response.
+// If userInput is empty the user message is omitted.
 func RunTurn(ctx context.Context, cfg *Config, messages []provider.Message, userInput string) ([]provider.Message, *provider.Response, error) {
-	cfg.Debug.UserMessage(userInput)
-	messages = append(messages, provider.Message{
-		Role:    provider.RoleUser,
-		Content: userInput,
-	})
+	if userInput != "" {
+		cfg.Debug.UserMessage(userInput)
+		messages = append(messages, provider.Message{
+			Role:    provider.RoleUser,
+			Content: userInput,
+		})
+	}
 	return provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, cfg.OnToolCall, cfg.Debug)
 }
 
@@ -37,12 +39,16 @@ func RunInitialTurn(ctx context.Context, cfg *Config, messages []provider.Messag
 }
 
 // RunTurnStream is like RunTurn but streams text chunks via onChunk.
+// If userInput is empty the user message is omitted (useful for skill
+// commands where the system prompt alone drives the response).
 func RunTurnStream(ctx context.Context, cfg *Config, messages []provider.Message, userInput string, onChunk provider.StreamCallback) ([]provider.Message, *provider.Response, error) {
-	cfg.Debug.UserMessage(userInput)
-	messages = append(messages, provider.Message{
-		Role:    provider.RoleUser,
-		Content: userInput,
-	})
+	if userInput != "" {
+		cfg.Debug.UserMessage(userInput)
+		messages = append(messages, provider.Message{
+			Role:    provider.RoleUser,
+			Content: userInput,
+		})
+	}
 	return provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, onChunk, cfg.OnToolCall, cfg.Debug)
 }
 

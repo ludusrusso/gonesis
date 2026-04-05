@@ -143,7 +143,7 @@ func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent)
 
 	// Skill commands run a streaming LLM turn with skill content as system context.
 	if runner, ok := cmd.(command.SkillRunner); ok {
-		s.handleSkillCommand(req, runner, args, send, sessions, logger)
+		s.handleSkillCommand(req, runner, send, sessions, logger)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent)
 	send(ChatEvent{Type: "done", Content: result})
 }
 
-func (s *SocketServer) handleSkillCommand(req *ChatRequest, runner command.SkillRunner, userInput string, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {
+func (s *SocketServer) handleSkillCommand(req *ChatRequest, runner command.SkillRunner, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {
 	onChunk := func(chunk string) {
 		send(ChatEvent{Type: "chunk", Content: chunk})
 	}
@@ -168,7 +168,7 @@ func (s *SocketServer) handleSkillCommand(req *ChatRequest, runner command.Skill
 		send(ChatEvent{Type: "inform", Content: message})
 	}
 
-	content, err := sessions.RunSkillTurnStream(s.ctx, req.SessionID, runner.SkillContent(), userInput, onChunk, onToolCall, onInform)
+	content, err := sessions.RunSkillTurnStream(s.ctx, req.SessionID, runner.SkillContent(), req.Content, onChunk, onToolCall, onInform)
 	if err != nil {
 		logger.Error("skill command error", "error", err)
 		send(ChatEvent{Type: "error", Message: err.Error()})
