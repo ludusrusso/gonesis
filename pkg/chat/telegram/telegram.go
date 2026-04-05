@@ -23,9 +23,19 @@ type SessionProvider interface {
 	WelcomeText() string
 }
 
+// botAPI abstracts the Telegram Bot API methods used by Bridge, enabling
+// testing without a real bot connection.
+type botAPI interface {
+	Send(c tgbotapi.Chattable) (tgbotapi.Message, error)
+	Request(c tgbotapi.Chattable) (*tgbotapi.APIResponse, error)
+	GetUpdatesChan(config tgbotapi.UpdateConfig) tgbotapi.UpdatesChannel
+	StopReceivingUpdates()
+}
+
 // Bridge connects a Telegram bot to the daemon's session manager.
 type Bridge struct {
-	bot          *tgbotapi.BotAPI
+	bot          botAPI
+	username     string
 	sm           SessionProvider
 	commands     *command.Registry
 	auth         *auth.Store
@@ -44,6 +54,7 @@ func New(token string, sm SessionProvider, authStore *auth.Store, commands *comm
 	}
 	return &Bridge{
 		bot:          bot,
+		username:     bot.Self.UserName,
 		sm:           sm,
 		commands:     commands,
 		auth:         authStore,
@@ -54,12 +65,16 @@ func New(token string, sm SessionProvider, authStore *auth.Store, commands *comm
 
 // Run starts the Telegram update loop. It blocks until ctx is cancelled.
 func (b *Bridge) Run(ctx context.Context) error {
+	if err := b.SyncCommands(); err != nil {
+		b.logger.Warn("failed to sync telegram commands at startup", "error", err)
+	}
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	updates := b.bot.GetUpdatesChan(u)
 
-	b.logger.Info("telegram bot started", "username", b.bot.Self.UserName)
+	b.logger.Info("telegram bot started", "username", b.username)
 
 	for {
 		select {
@@ -75,6 +90,14 @@ func (b *Bridge) Run(ctx context.Context) error {
 }
 
 func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
+	// Refresh Telegram's native command autocomplete after handling, in case
+	// the agent added or removed skills during this turn.
+	defer func() {
+		if err := b.SyncCommands(); err != nil {
+			b.logger.Debug("failed to sync telegram commands", "error", err)
+		}
+	}()
+
 	chatID := msg.Chat.ID
 
 	// Auth gate: block unauthenticated users before any processing.
