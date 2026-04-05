@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -97,7 +96,7 @@ func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent
 		})
 
 	case "message":
-		if strings.HasPrefix(req.Content, "/") {
+		if s.commands != nil && strings.HasPrefix(req.Content, "/") {
 			go s.handleSlashCommand(req, send, logger)
 			return
 		}
@@ -126,7 +125,7 @@ func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent)
 		return
 	}
 
-	result, err := cmd.Execute(context.Background(), args)
+	result, err := cmd.Execute(s.ctx, args)
 	if err != nil {
 		logger.Error("slash command error", "command", name, "error", err)
 		send(ChatEvent{Type: "error", Message: err.Error()})
