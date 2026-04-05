@@ -10,6 +10,25 @@ import (
 	"wildgecu/pkg/session"
 )
 
+// capturingProvider records the last system prompt and user message it received.
+type capturingProvider struct {
+	lastSystemPrompt string
+	lastUserMessage  string
+}
+
+func (p *capturingProvider) Generate(_ context.Context, params *provider.GenerateParams) (*provider.Response, error) {
+	p.lastSystemPrompt = params.SystemPrompt
+	for i := len(params.Messages) - 1; i >= 0; i-- {
+		if params.Messages[i].Role == provider.RoleUser {
+			p.lastUserMessage = params.Messages[i].Content
+			break
+		}
+	}
+	return &provider.Response{
+		Message: provider.Message{Role: "assistant", Content: "ok"},
+	}, nil
+}
+
 // fakeProvider returns a canned response without calling any real LLM.
 type fakeProvider struct{}
 
@@ -114,6 +133,77 @@ func TestReset(t *testing.T) {
 		_, err := sm.Reset(context.Background(), "nonexistent")
 		if err == nil {
 			t.Fatal("expected error for unknown session")
+		}
+	})
+}
+
+func TestRunSkillTurnStream(t *testing.T) {
+	newSMWithCapture := func(basePrompt string) (*SessionManager, *capturingProvider) {
+		cp := &capturingProvider{}
+		sm := &SessionManager{
+			chatCfg: &session.Config{
+				Provider:     cp,
+				SystemPrompt: basePrompt,
+				WelcomeText:  "hello",
+			},
+			sessions: make(map[string]*ManagedSession),
+		}
+		return sm, cp
+	}
+
+	t.Run("injects skill content into system prompt", func(t *testing.T) {
+		sm, cp := newSMWithCapture("base prompt")
+		sess := sm.Create()
+
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "do the thing", nil, nil, nil); err != nil {
+			t.Fatalf("RunSkillTurnStream() error: %v", err)
+		}
+
+		want := "base prompt\n\nskill instructions"
+		if cp.lastSystemPrompt != want {
+			t.Errorf("SystemPrompt = %q, want %q", cp.lastSystemPrompt, want)
+		}
+	})
+
+	t.Run("does not modify system prompt when skill content is empty", func(t *testing.T) {
+		sm, cp := newSMWithCapture("base prompt")
+		sess := sm.Create()
+
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "", "do the thing", nil, nil, nil); err != nil {
+			t.Fatalf("RunSkillTurnStream() error: %v", err)
+		}
+
+		if cp.lastSystemPrompt != "base prompt" {
+			t.Errorf("SystemPrompt = %q, want %q", cp.lastSystemPrompt, "base prompt")
+		}
+	})
+
+	t.Run("passes user input as user message", func(t *testing.T) {
+		sm, cp := newSMWithCapture("base prompt")
+		sess := sm.Create()
+
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "review main.go", nil, nil, nil); err != nil {
+			t.Fatalf("RunSkillTurnStream() error: %v", err)
+		}
+
+		if cp.lastUserMessage != "review main.go" {
+			t.Errorf("lastUserMessage = %q, want %q", cp.lastUserMessage, "review main.go")
+		}
+	})
+
+	t.Run("skill content does not persist to subsequent turns", func(t *testing.T) {
+		sm, cp := newSMWithCapture("base prompt")
+		sess := sm.Create()
+
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "do the thing", nil, nil, nil); err != nil {
+			t.Fatalf("RunSkillTurnStream() error: %v", err)
+		}
+		if _, err := sm.RunTurnStream(context.Background(), sess.ID, "follow up", nil, nil, nil); err != nil {
+			t.Fatalf("RunTurnStream() error: %v", err)
+		}
+
+		if cp.lastSystemPrompt != "base prompt" {
+			t.Errorf("after regular turn, SystemPrompt = %q, want %q", cp.lastSystemPrompt, "base prompt")
 		}
 	})
 }

@@ -14,6 +14,19 @@ import (
 	"wildgecu/pkg/session"
 )
 
+// fakeSkillCommand implements command.Command and command.SkillRunner for testing.
+type fakeSkillCommand struct {
+	name    string
+	content string
+}
+
+func (c *fakeSkillCommand) Name() string                              { return c.name }
+func (c *fakeSkillCommand) Description() string                       { return "fake skill" }
+func (c *fakeSkillCommand) Execute(_ context.Context, _ string) (string, error) {
+	return c.content, nil
+}
+func (c *fakeSkillCommand) SkillContent() string { return c.content }
+
 // blockingProvider blocks on Generate until the context is cancelled.
 type blockingProvider struct{}
 
@@ -278,5 +291,52 @@ func TestSlashCommandCleanResetsSession(t *testing.T) {
 	newSessionID := ev.Content[idx+len(prefix):]
 	if sm.Get(newSessionID) == nil {
 		t.Error("expected new session to exist after /clean")
+	}
+}
+
+func TestSlashSkillCommandDispatch(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sm := newTestSessionManager(t)
+
+	reg := command.NewRegistry("")
+	reg.Register(&fakeSkillCommand{name: "review", content: "Review the code carefully."})
+	srv := &SocketServer{ctx: ctx, commands: reg}
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+
+	logger := slog.Default()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		firstReq := &ChatRequest{Type: "session.create"}
+		srv.handleChatConnection(serverConn, firstReq, sm, logger)
+	}()
+
+	enc := json.NewEncoder(clientConn)
+	dec := json.NewDecoder(clientConn)
+
+	var created ChatEvent
+	if err := dec.Decode(&created); err != nil {
+		t.Fatalf("decode session.created: %v", err)
+	}
+
+	if err := enc.Encode(ChatRequest{Type: "message", SessionID: created.SessionID, Content: "/review some code"}); err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+
+	var ev ChatEvent
+	if err := dec.Decode(&ev); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if ev.Type != "done" {
+		t.Fatalf("expected done event, got %s: %+v", ev.Type, ev)
+	}
+	if ev.Content == "" {
+		t.Error("expected non-empty skill response")
 	}
 }
