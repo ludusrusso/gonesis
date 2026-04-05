@@ -19,6 +19,7 @@ import (
 type SessionProvider interface {
 	CreateSession() string // returns session ID
 	RunTurnStreamRaw(ctx context.Context, id string, input string, onChunk func(string), onToolCall func(string, string), onInform func(string)) (string, error)
+	RunSkillTurnStreamRaw(ctx context.Context, id, skillContent, userInput string, onChunk func(string), onToolCall func(string, string), onInform func(string)) (string, error)
 	WelcomeText() string
 }
 
@@ -107,6 +108,11 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 				}
 				return
 			}
+			// Skill commands run a streaming LLM turn.
+			if runner, ok := cmd.(command.SkillRunner); ok {
+				b.handleSkillCommand(ctx, chatID, runner, args)
+				return
+			}
 			// Inject session ID for session-aware commands like /clean.
 			sessionID := b.getOrCreateSession(chatID)
 			cmdCtx := command.WithSessionID(ctx, sessionID)
@@ -168,6 +174,52 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	}
 
 	// Long response: edit placeholder with first chunk, send rest as new messages
+	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, finalContent[:4096])
+	if _, err := b.bot.Send(edit); err != nil {
+		b.logger.Error("telegram final edit error", "error", err)
+	}
+	b.sendMessages(chatID, finalContent[4096:])
+}
+
+func (b *Bridge) handleSkillCommand(ctx context.Context, chatID int64, runner command.SkillRunner, userInput string) {
+	sessionID := b.getOrCreateSession(chatID)
+
+	// Send typing indicator
+	if _, err := b.bot.Request(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)); err != nil {
+		b.logger.Error("telegram send chat action error", "error", err)
+	}
+
+	// Send placeholder message
+	placeholder := tgbotapi.NewMessage(chatID, "...")
+	sent, err := b.bot.Send(placeholder)
+	if err != nil {
+		b.logger.Error("telegram send placeholder error", "error", err)
+		return
+	}
+
+	h := &turnHandler{bridge: b, chatID: chatID, msgID: sent.MessageID}
+	finalContent, err := b.sm.RunSkillTurnStreamRaw(ctx, sessionID, runner.SkillContent(), userInput, h.onChunk, h.onToolCall, h.onInform)
+	if err != nil {
+		b.logger.Error("telegram skill command error", "error", err, "chat_id", chatID)
+		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, fmt.Sprintf("Error: %v", err))
+		if _, err := b.bot.Send(edit); err != nil {
+			b.logger.Error("telegram edit error message failed", "error", err)
+		}
+		return
+	}
+
+	if finalContent == "" {
+		finalContent = "(empty response)"
+	}
+
+	if len(finalContent) <= 4096 {
+		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, finalContent)
+		if _, err := b.bot.Send(edit); err != nil {
+			b.logger.Error("telegram final edit error", "error", err)
+		}
+		return
+	}
+
 	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, finalContent[:4096])
 	if _, err := b.bot.Send(edit); err != nil {
 		b.logger.Error("telegram final edit error", "error", err)

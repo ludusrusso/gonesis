@@ -109,6 +109,36 @@ func TestRegistryListEmpty(t *testing.T) {
 	}
 }
 
+func TestSkillCommandImplementsSkillRunner(t *testing.T) {
+	dir := t.TempDir()
+	writeTestSkill(t, dir, "---\nname: review\ndescription: Code review\n---\nReview the code carefully")
+
+	r := NewRegistry(dir)
+	cmd := r.Resolve("review")
+	if cmd == nil {
+		t.Fatal("expected to resolve skill command")
+	}
+
+	runner, ok := cmd.(SkillRunner)
+	if !ok {
+		t.Fatal("expected skill command to implement SkillRunner")
+	}
+
+	if got := runner.SkillContent(); got != "Review the code carefully" {
+		t.Errorf("SkillContent() = %q, want %q", got, "Review the code carefully")
+	}
+}
+
+func TestBuiltinCommandNotSkillRunner(t *testing.T) {
+	r := NewRegistry("")
+	r.Register(&stubCommand{name: "help", desc: "Show help"})
+
+	cmd := r.Resolve("help")
+	if _, ok := cmd.(SkillRunner); ok {
+		t.Error("expected built-in command NOT to implement SkillRunner")
+	}
+}
+
 // writeTestSkill creates a skill directory with a SKILL.md file for testing.
 func writeTestSkill(t *testing.T, dir, data string) {
 	t.Helper()

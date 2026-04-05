@@ -97,7 +97,7 @@ func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent
 
 	case "message":
 		if s.commands != nil && strings.HasPrefix(req.Content, "/") {
-			go s.handleSlashCommand(req, send, logger)
+			go s.handleSlashCommand(req, send, sessions, logger)
 			return
 		}
 		go s.handleChatMessage(req, send, sessions, logger)
@@ -112,7 +112,7 @@ func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent
 	}
 }
 
-func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent), logger *slog.Logger) {
+func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {
 	name, args := command.Parse(req.Content)
 	if name == "" {
 		send(ChatEvent{Type: "done", Content: "Usage: /<command> [args]"})
@@ -125,6 +125,12 @@ func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent)
 		return
 	}
 
+	// Skill commands run a streaming LLM turn with skill content as system context.
+	if runner, ok := cmd.(command.SkillRunner); ok {
+		s.handleSkillCommand(req, runner, args, send, sessions, logger)
+		return
+	}
+
 	ctx := command.WithSessionID(s.ctx, req.SessionID)
 	result, err := cmd.Execute(ctx, args)
 	if err != nil {
@@ -133,6 +139,26 @@ func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent)
 		return
 	}
 	send(ChatEvent{Type: "done", Content: result})
+}
+
+func (s *SocketServer) handleSkillCommand(req *ChatRequest, runner command.SkillRunner, userInput string, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {
+	onChunk := func(chunk string) {
+		send(ChatEvent{Type: "chunk", Content: chunk})
+	}
+	onToolCall := func(name string, args string) {
+		send(ChatEvent{Type: "tool_call", Name: name, Args: args})
+	}
+	onInform := func(message string) {
+		send(ChatEvent{Type: "inform", Content: message})
+	}
+
+	content, err := sessions.RunSkillTurnStream(s.ctx, req.SessionID, runner.SkillContent(), userInput, onChunk, onToolCall, onInform)
+	if err != nil {
+		logger.Error("skill command error", "error", err)
+		send(ChatEvent{Type: "error", Message: err.Error()})
+		return
+	}
+	send(ChatEvent{Type: "done", Content: content})
 }
 
 func (s *SocketServer) handleChatMessage(req *ChatRequest, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {

@@ -80,13 +80,20 @@ func (r *Registry) List() []Entry {
 	return entries
 }
 
+// SkillRunner is implemented by commands backed by a skill that require
+// an LLM turn with the skill content as system context.
+type SkillRunner interface {
+	SkillContent() string
+}
+
 // skillCommand adapts a skill.Skill to the Command interface.
 type skillCommand struct {
 	skill *skill.Skill
 }
 
-func (c *skillCommand) Name() string        { return c.skill.Name }
-func (c *skillCommand) Description() string { return c.skill.Description }
+func (c *skillCommand) Name() string           { return c.skill.Name }
+func (c *skillCommand) Description() string    { return c.skill.Description }
+func (c *skillCommand) SkillContent() string   { return c.skill.Content }
 func (c *skillCommand) Execute(_ context.Context, _ string) (string, error) {
 	return c.skill.Content, nil
 }
