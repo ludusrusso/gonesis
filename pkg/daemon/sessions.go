@@ -206,7 +206,7 @@ func formatToolArgs(args map[string]any, maxLen int) string {
 	if len(args) == 0 {
 		return ""
 	}
-	var parts []string
+	parts := make([]string, 0, len(args))
 	for k, v := range args {
 		parts = append(parts, fmt.Sprintf("%s: %v", k, v))
 	}

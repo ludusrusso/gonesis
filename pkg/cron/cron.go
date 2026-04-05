@@ -94,7 +94,7 @@ func LoadAll(dir string) ([]*CronJob, []error) {
 		return nil, []error{fmt.Errorf("cron: search: %w", err)}
 	}
 
-	var jobs []*CronJob
+	jobs := make([]*CronJob, 0, len(matches))
 	var errs []error
 
 	for _, path := range matches {

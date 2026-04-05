@@ -17,7 +17,8 @@ func generateSchema(t reflect.Type) map[string]any {
 	properties := map[string]any{}
 	var required []any
 
-	for f := range t.Fields() {
+	for i := range t.NumField() {
+		f := t.Field(i)
 		if !f.IsExported() {
 			continue
 		}

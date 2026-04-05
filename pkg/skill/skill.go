@@ -104,7 +104,7 @@ func LoadAll(dir string) ([]*Skill, []error) {
 		return nil, []error{fmt.Errorf("skill: list dirs: %w", err)}
 	}
 
-	var skills []*Skill
+	skills := make([]*Skill, 0, len(entries))
 	var errs []error
 
 	for _, e := range entries {
