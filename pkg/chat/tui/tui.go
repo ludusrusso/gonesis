@@ -95,7 +95,7 @@ func New(ctx context.Context, client *daemon.Client) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(textinput.Blink, m.createSession, m.fetchCommands)
+	return tea.Batch(textinput.Blink, m.createSession)
 }
 
 // fetchCommands loads the available slash commands from the daemon.
@@ -147,7 +147,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sessionCreatedMsg:
 		m.sessionID = msg.sessionID
 		m.welcomeText = msg.welcome
-		return m, nil
+		return m, m.fetchCommands
 
 	case commandsLoadedMsg:
 		m.autocomplete = NewAutocomplete(msg.commands)
