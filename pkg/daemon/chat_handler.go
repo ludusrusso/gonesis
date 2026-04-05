@@ -125,7 +125,8 @@ func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent)
 		return
 	}
 
-	result, err := cmd.Execute(s.ctx, args)
+	ctx := command.WithSessionID(s.ctx, req.SessionID)
+	result, err := cmd.Execute(ctx, args)
 	if err != nil {
 		logger.Error("slash command error", "command", name, "error", err)
 		send(ChatEvent{Type: "error", Message: err.Error()})

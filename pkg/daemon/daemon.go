@@ -92,6 +92,10 @@ func Run(ctx context.Context, cfg Config) error {
 	cmdRegistry := command.NewRegistry(h.SkillsDir())
 	helpCmd := command.NewHelpCommand(cmdRegistry)
 	cmdRegistry.Register(helpCmd)
+	cleanCmd := command.NewCleanCommand(func(ctx context.Context, id string) (string, error) {
+		return sm.ResetSession(ctx, id)
+	})
+	cmdRegistry.Register(cleanCmd)
 	srv.SetCommands(cmdRegistry)
 
 	// --- Cron scheduler (declared early so status handler can access it) ---

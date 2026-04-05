@@ -114,6 +114,25 @@ func (sm *SessionManager) Close(ctx context.Context, id string) {
 }
 
 
+// Reset closes the given session (with finalize) and creates a fresh one.
+func (sm *SessionManager) Reset(ctx context.Context, id string) (*ManagedSession, error) {
+	if sm.Get(id) == nil {
+		return nil, fmt.Errorf("session not found: %s", id)
+	}
+	sm.Close(ctx, id)
+	return sm.Create(), nil
+}
+
+// ResetSession resets a session and returns the new session ID.
+// This satisfies the telegram.SessionProvider interface.
+func (sm *SessionManager) ResetSession(ctx context.Context, id string) (string, error) {
+	sess, err := sm.Reset(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return sess.ID, nil
+}
+
 // Interrupt cancels the current turn if one is running.
 func (sm *SessionManager) Interrupt(id string) {
 	sess := sm.Get(id)

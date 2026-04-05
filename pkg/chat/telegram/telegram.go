@@ -18,6 +18,7 @@ import (
 // package does not depend on internal/daemon.
 type SessionProvider interface {
 	CreateSession() string // returns session ID
+	ResetSession(ctx context.Context, id string) (string, error)
 	RunTurnStreamRaw(ctx context.Context, id string, input string, onChunk func(string), onToolCall func(string, string), onInform func(string)) (string, error)
 	WelcomeText() string
 }
@@ -107,13 +108,20 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 				}
 				return
 			}
-			result, err := cmd.Execute(ctx, args)
+			// Inject session ID for session-aware commands like /clean.
+			sessionID := b.getOrCreateSession(chatID)
+			cmdCtx := command.WithSessionID(ctx, sessionID)
+			result, err := cmd.Execute(cmdCtx, args)
 			if err != nil {
 				reply := tgbotapi.NewMessage(chatID, fmt.Sprintf("Error: %v", err))
 				if _, err := b.bot.Send(reply); err != nil {
 					b.logger.Error("telegram send error", "error", err)
 				}
 				return
+			}
+			// If the command was /clean, update our chat→session mapping.
+			if name == "clean" {
+				b.updateSessionFromResult(chatID, result)
 			}
 			b.sendMessages(chatID, result)
 			return
@@ -206,6 +214,21 @@ func (h *turnHandler) onInform(message string) {
 	if _, err := h.bridge.bot.Request(tgbotapi.NewChatAction(h.chatID, tgbotapi.ChatTyping)); err != nil {
 		h.bridge.logger.Debug("telegram refresh chat action error", "error", err)
 	}
+}
+
+// updateSessionFromResult extracts the new session ID from a /clean result
+// and updates the chat→session mapping.
+func (b *Bridge) updateSessionFromResult(chatID int64, result string) {
+	// The result format is "Session reset. New session: <id>"
+	const prefix = "New session: "
+	idx := strings.Index(result, prefix)
+	if idx < 0 {
+		return
+	}
+	newID := result[idx+len(prefix):]
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.chatSessions[chatID] = newID
 }
 
 func (b *Bridge) getOrCreateSession(chatID int64) string {

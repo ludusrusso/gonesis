@@ -92,6 +92,19 @@ func newTestServer(ctx context.Context) *SocketServer {
 	return &SocketServer{ctx: ctx, commands: reg}
 }
 
+// newTestServerWithClean creates a SocketServer with /help and /clean commands
+// backed by the given SessionManager.
+func newTestServerWithClean(ctx context.Context, sm *SessionManager) *SocketServer {
+	reg := command.NewRegistry("")
+	help := command.NewHelpCommand(reg)
+	reg.Register(help)
+	clean := command.NewCleanCommand(func(cmdCtx context.Context, id string) (string, error) {
+		return sm.ResetSession(cmdCtx, id)
+	})
+	reg.Register(clean)
+	return &SocketServer{ctx: ctx, commands: reg}
+}
+
 func TestSlashCommandHelp(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -193,5 +206,77 @@ func TestSlashCommandUnknown(t *testing.T) {
 	}
 	if !strings.Contains(ev.Content, "Unknown command: /typo") {
 		t.Errorf("expected unknown command error, got %q", ev.Content)
+	}
+}
+
+func TestSlashCommandCleanResetsSession(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sm := newTestSessionManager(t)
+	srv := newTestServerWithClean(ctx, sm)
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+
+	logger := slog.Default()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		firstReq := &ChatRequest{Type: "session.create"}
+		srv.handleChatConnection(serverConn, firstReq, sm, logger)
+	}()
+
+	enc := json.NewEncoder(clientConn)
+	dec := json.NewDecoder(clientConn)
+
+	// Read session.created
+	var created ChatEvent
+	if err := dec.Decode(&created); err != nil {
+		t.Fatalf("decode session.created: %v", err)
+	}
+	oldSessionID := created.SessionID
+
+	// Verify old session exists.
+	if sm.Get(oldSessionID) == nil {
+		t.Fatal("expected old session to exist before /clean")
+	}
+
+	// Send /clean command
+	if err := enc.Encode(ChatRequest{Type: "message", SessionID: oldSessionID, Content: "/clean"}); err != nil {
+		t.Fatalf("encode /clean: %v", err)
+	}
+
+	var ev ChatEvent
+	if err := dec.Decode(&ev); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if ev.Type != "done" {
+		t.Fatalf("expected done event, got %s: %+v", ev.Type, ev)
+	}
+	if !strings.Contains(ev.Content, "Session reset") {
+		t.Errorf("expected reset confirmation, got %q", ev.Content)
+	}
+	if !strings.Contains(ev.Content, "New session:") {
+		t.Errorf("expected new session info, got %q", ev.Content)
+	}
+
+	// Old session should be removed.
+	if sm.Get(oldSessionID) != nil {
+		t.Error("expected old session to be removed after /clean")
+	}
+
+	// Extract new session ID from response and verify it exists.
+	const prefix = "New session: "
+	idx := strings.Index(ev.Content, prefix)
+	if idx < 0 {
+		t.Fatalf("could not find new session ID in response: %q", ev.Content)
+	}
+	newSessionID := ev.Content[idx+len(prefix):]
+	if sm.Get(newSessionID) == nil {
+		t.Error("expected new session to exist after /clean")
 	}
 }
