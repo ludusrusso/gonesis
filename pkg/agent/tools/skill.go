@@ -9,26 +9,24 @@ import (
 	"wildgecu/pkg/skill"
 )
 
-// SkillTools returns the load_skill tool bound to skillsDir.
+// SkillTools returns the list_skills and read_skill tools bound to skillsDir.
 // Returns an empty slice if skillsDir is empty.
 func SkillTools(skillsDir string) []tool.Tool {
 	if skillsDir == "" {
 		return nil
 	}
-	return []tool.Tool{newLoadSkillTool(skillsDir)}
+	return []tool.Tool{
+		newListSkillsTool(skillsDir),
+		newReadSkillTool(skillsDir),
+	}
 }
 
-// --- load_skill ---
+// --- list_skills ---
 
-type loadSkillInput struct {
-	Action string `json:"action" description:"Action to perform: 'list' to list available skills, 'load' to load a specific skill"`
-	Name   string `json:"name,omitempty" description:"Name of the skill to load (required when action is 'load')"`
-}
+type listSkillsInput struct{}
 
-type loadSkillOutput struct {
-	Skills  []skillSummary `json:"skills,omitempty"`
-	Name    string         `json:"name,omitempty"`
-	Content string         `json:"content,omitempty"`
+type listSkillsOutput struct {
+	Skills []skillSummary `json:"skills"`
 }
 
 type skillSummary struct {
@@ -37,38 +35,48 @@ type skillSummary struct {
 	Tags        []string `json:"tags,omitempty"`
 }
 
-func newLoadSkillTool(skillsDir string) tool.Tool {
-	return tool.NewTool("load_skill", "List and load domain-specific skills. Use action='list' to see available skills, action='load' with name to load a specific skill's content.",
-		func(ctx context.Context, in loadSkillInput) (loadSkillOutput, error) {
-			switch in.Action {
-			case "list":
-				skills, _ := skill.LoadAll(skillsDir)
-				summaries := make([]skillSummary, 0, len(skills))
-				for _, s := range skills {
-					summaries = append(summaries, skillSummary{
-						Name:        s.Name,
-						Description: s.Description,
-						Tags:        s.Tags,
-					})
-				}
-				return loadSkillOutput{Skills: summaries}, nil
-
-			case "load":
-				if strings.TrimSpace(in.Name) == "" {
-					return loadSkillOutput{}, fmt.Errorf("name is required when action is 'load'")
-				}
-				s, err := skill.Load(skillsDir, in.Name)
-				if err != nil {
-					return loadSkillOutput{}, fmt.Errorf("loading skill %q: %w", in.Name, err)
-				}
-				return loadSkillOutput{
-					Name:    s.Name,
-					Content: s.Content,
-				}, nil
-
-			default:
-				return loadSkillOutput{}, fmt.Errorf("unknown action %q: use 'list' or 'load'", in.Action)
+func newListSkillsTool(skillsDir string) tool.Tool {
+	return tool.NewTool("list_skills", "List available domain-specific skills with their names, descriptions, and tags.",
+		func(ctx context.Context, in listSkillsInput) (listSkillsOutput, error) {
+			skills, _ := skill.LoadAll(skillsDir)
+			summaries := make([]skillSummary, 0, len(skills))
+			for _, s := range skills {
+				summaries = append(summaries, skillSummary{
+					Name:        s.Name,
+					Description: s.Description,
+					Tags:        s.Tags,
+				})
 			}
+			return listSkillsOutput{Skills: summaries}, nil
+		},
+	)
+}
+
+// --- read_skill ---
+
+type readSkillInput struct {
+	Name string `json:"name" description:"Name of the skill to load"`
+}
+
+type readSkillOutput struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+func newReadSkillTool(skillsDir string) tool.Tool {
+	return tool.NewTool("read_skill", "Load a specific skill's full content by name.",
+		func(ctx context.Context, in readSkillInput) (readSkillOutput, error) {
+			if strings.TrimSpace(in.Name) == "" {
+				return readSkillOutput{}, fmt.Errorf("name is required")
+			}
+			s, err := skill.Load(skillsDir, in.Name)
+			if err != nil {
+				return readSkillOutput{}, fmt.Errorf("loading skill %q: %w", in.Name, err)
+			}
+			return readSkillOutput{
+				Name:    s.Name,
+				Content: s.Content,
+			}, nil
 		},
 	)
 }

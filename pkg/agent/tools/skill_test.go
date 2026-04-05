@@ -42,24 +42,27 @@ func TestSkillTools(t *testing.T) {
 		}
 	})
 
-	t.Run("returns load_skill tool", func(t *testing.T) {
+	t.Run("returns list_skills and read_skill tools", func(t *testing.T) {
 		tools := SkillTools("/tmp")
-		if len(tools) != 1 {
-			t.Fatalf("expected 1 tool, got %d", len(tools))
+		if len(tools) != 2 {
+			t.Fatalf("expected 2 tools, got %d", len(tools))
 		}
-		if tools[0].Definition().Name != "load_skill" {
-			t.Fatalf("tool name = %q", tools[0].Definition().Name)
+		if tools[0].Definition().Name != "list_skills" {
+			t.Fatalf("first tool name = %q, want list_skills", tools[0].Definition().Name)
+		}
+		if tools[1].Definition().Name != "read_skill" {
+			t.Fatalf("second tool name = %q, want read_skill", tools[1].Definition().Name)
 		}
 	})
 }
 
-func TestLoadSkill(t *testing.T) {
-	t.Run("list empty dir", func(t *testing.T) {
+func TestListSkills(t *testing.T) {
+	t.Run("empty dir", func(t *testing.T) {
 		dir := t.TempDir()
-		tl := newLoadSkillTool(dir)
+		tl := newListSkillsTool(dir)
 
-		var out loadSkillOutput
-		result, err := tl.Execute(context.Background(), map[string]any{"action": "list"})
+		var out listSkillsOutput
+		result, err := tl.Execute(context.Background(), map[string]any{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -70,14 +73,14 @@ func TestLoadSkill(t *testing.T) {
 		}
 	})
 
-	t.Run("list multiple skills", func(t *testing.T) {
+	t.Run("multiple skills", func(t *testing.T) {
 		dir := t.TempDir()
 		writeSkill(t, dir, "test-skill", testSkillContent)
 		writeSkill(t, dir, "another-skill", testSkill2Content)
 
-		tl := newLoadSkillTool(dir)
-		var out loadSkillOutput
-		result, _ := tl.Execute(context.Background(), map[string]any{"action": "list"})
+		tl := newListSkillsTool(dir)
+		var out listSkillsOutput
+		result, _ := tl.Execute(context.Background(), map[string]any{})
 		json.Unmarshal([]byte(result), &out)
 
 		if len(out.Skills) != 2 {
@@ -92,13 +95,13 @@ func TestLoadSkill(t *testing.T) {
 		}
 	})
 
-	t.Run("list includes tags", func(t *testing.T) {
+	t.Run("includes tags", func(t *testing.T) {
 		dir := t.TempDir()
 		writeSkill(t, dir, "test-skill", testSkillContent)
 
-		tl := newLoadSkillTool(dir)
-		var out loadSkillOutput
-		result, _ := tl.Execute(context.Background(), map[string]any{"action": "list"})
+		tl := newListSkillsTool(dir)
+		var out listSkillsOutput
+		result, _ := tl.Execute(context.Background(), map[string]any{})
 		json.Unmarshal([]byte(result), &out)
 
 		if len(out.Skills) != 1 {
@@ -108,16 +111,17 @@ func TestLoadSkill(t *testing.T) {
 			t.Fatalf("tags = %v, want [testing]", out.Skills[0].Tags)
 		}
 	})
+}
 
+func TestReadSkill(t *testing.T) {
 	t.Run("load by name", func(t *testing.T) {
 		dir := t.TempDir()
 		writeSkill(t, dir, "test-skill", testSkillContent)
 
-		tl := newLoadSkillTool(dir)
-		var out loadSkillOutput
+		tl := newReadSkillTool(dir)
+		var out readSkillOutput
 		result, err := tl.Execute(context.Background(), map[string]any{
-			"action": "load",
-			"name":   "test-skill",
+			"name": "test-skill",
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -132,41 +136,27 @@ func TestLoadSkill(t *testing.T) {
 		}
 	})
 
-	t.Run("load missing name", func(t *testing.T) {
+	t.Run("missing name", func(t *testing.T) {
 		dir := t.TempDir()
-		tl := newLoadSkillTool(dir)
+		tl := newReadSkillTool(dir)
 
 		_, err := tl.Execute(context.Background(), map[string]any{
-			"action": "load",
-			"name":   "",
+			"name": "",
 		})
 		if err == nil {
 			t.Fatal("expected error for missing name")
 		}
 	})
 
-	t.Run("load nonexistent skill", func(t *testing.T) {
+	t.Run("nonexistent skill", func(t *testing.T) {
 		dir := t.TempDir()
-		tl := newLoadSkillTool(dir)
+		tl := newReadSkillTool(dir)
 
 		_, err := tl.Execute(context.Background(), map[string]any{
-			"action": "load",
-			"name":   "no-such-skill",
+			"name": "no-such-skill",
 		})
 		if err == nil {
 			t.Fatal("expected error for nonexistent skill")
-		}
-	})
-
-	t.Run("unknown action", func(t *testing.T) {
-		dir := t.TempDir()
-		tl := newLoadSkillTool(dir)
-
-		_, err := tl.Execute(context.Background(), map[string]any{
-			"action": "delete",
-		})
-		if err == nil {
-			t.Fatal("expected error for unknown action")
 		}
 	})
 }
