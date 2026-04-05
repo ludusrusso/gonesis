@@ -111,8 +111,11 @@ func (s *SocketServer) handleChatMessage(req *ChatRequest, send func(ChatEvent),
 	onToolCall := func(name string, args string) {
 		send(ChatEvent{Type: "tool_call", Name: name, Args: args})
 	}
+	onInform := func(message string) {
+		send(ChatEvent{Type: "inform", Content: message})
+	}
 
-	content, err := sessions.RunTurnStream(s.ctx, req.SessionID, req.Content, onChunk, onToolCall)
+	content, err := sessions.RunTurnStream(s.ctx, req.SessionID, req.Content, onChunk, onToolCall, onInform)
 	if err != nil {
 		logger.Error("chat turn error", "session_id", req.SessionID, "error", err)
 		send(ChatEvent{Type: "error", Message: err.Error()})

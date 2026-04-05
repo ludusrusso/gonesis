@@ -73,3 +73,21 @@ type StreamProvider interface {
 
 // StreamCallback is called for each text chunk during a streaming response.
 type StreamCallback func(chunk string)
+
+// InformFunc is called when the agent wants to display a status message to the user.
+type InformFunc func(message string)
+
+type informKeyType struct{}
+
+var informKey = informKeyType{}
+
+// WithInformFunc returns a context carrying the given InformFunc.
+func WithInformFunc(ctx context.Context, fn InformFunc) context.Context {
+	return context.WithValue(ctx, informKey, fn)
+}
+
+// GetInformFunc extracts the InformFunc from the context, or nil.
+func GetInformFunc(ctx context.Context) InformFunc {
+	fn, _ := ctx.Value(informKey).(InformFunc)
+	return fn
+}

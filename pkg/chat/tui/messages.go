@@ -31,3 +31,8 @@ type sessionCreatedMsg struct {
 type sessionErrorMsg struct {
 	err error
 }
+
+// informMsg carries a fire-and-forget status message from the agent.
+type informMsg struct {
+	message string
+}

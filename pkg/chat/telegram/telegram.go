@@ -14,7 +14,7 @@ import (
 // package does not depend on internal/daemon.
 type SessionProvider interface {
 	CreateSession() string // returns session ID
-	RunTurnStreamRaw(ctx context.Context, id string, input string, onChunk func(string), onToolCall func(string, string)) (string, error)
+	RunTurnStreamRaw(ctx context.Context, id string, input string, onChunk func(string), onToolCall func(string, string), onInform func(string)) (string, error)
 	WelcomeText() string
 }
 
@@ -106,7 +106,7 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		}
 	}
 
-	finalContent, err := b.sm.RunTurnStreamRaw(ctx, sessionID, msg.Text, onChunk, nil)
+	finalContent, err := b.sm.RunTurnStreamRaw(ctx, sessionID, msg.Text, onChunk, nil, nil)
 	if err != nil {
 		b.logger.Error("telegram turn error", "error", err, "chat_id", chatID)
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, fmt.Sprintf("Error: %v", err))

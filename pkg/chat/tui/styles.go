@@ -9,4 +9,5 @@ var (
 	helpStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	spinnerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	toolStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	informStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("45"))
 )

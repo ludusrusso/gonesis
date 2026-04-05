@@ -51,6 +51,7 @@ func Prepare(ctx context.Context, cfg Config) (*session.Config, *debug.Logger, e
 	registry.Add(tools.GeneralTools())
 	registry.Add(tools.ExecTools(cfg.Home.Dir()))
 	registry.Add(tools.SkillTools(skillsDir))
+	registry.Add(tools.InformTools())
 	systemPrompt := BuildSystemPrompt(cfg.Workspace, soulContent, memoryContent)
 	if dbg != nil {
 		dbg.SystemPrompt(systemPrompt)
@@ -115,6 +116,7 @@ func PrepareCode(ctx context.Context, cfg Config, workDir string) (*session.Conf
 	registry.Add(tools.ExecTools(workDir))
 	registry.Add(tools.FileTools(workDir))
 	registry.Add(tools.SkillTools(skillsDir))
+	registry.Add(tools.InformTools())
 	systemPrompt := BuildCodeSystemPrompt(cfg.Workspace, soulContent, memoryContent, workDir)
 	if dbg != nil {
 		dbg.SystemPrompt(systemPrompt)

@@ -201,6 +201,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							prog.p.Send(toolCallMsg{name: event.Name, args: args})
 							_ = label
 						}
+					case "inform":
+						if prog.p != nil {
+							prog.p.Send(informMsg{message: event.Content})
+						}
 					case "done":
 						return streamDoneMsg{content: event.Content}
 					case "error":
@@ -221,6 +225,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var mouseCmd tea.Cmd
 		m.viewport, mouseCmd = m.viewport.Update(msg)
 		return m, mouseCmd
+
+	case informMsg:
+		m.appendDisplay(informStyle.Render(">> " + msg.message))
+		return m, nil
 
 	case toolCallMsg:
 		m.activeToolCall = msg.name
