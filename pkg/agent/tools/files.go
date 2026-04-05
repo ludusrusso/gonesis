@@ -219,6 +219,7 @@ func newUpdateFileTool(workDir string) tool.Tool {
 			}
 
 			updated := strings.Replace(content, in.OldString, in.NewString, 1)
+			// #nosec G703 - path is resolved through resolvePath from user input
 			if err := os.WriteFile(p, []byte(updated), 0o644); err != nil {
 				return updateFileOutput{}, fmt.Errorf("writing %s: %w", p, err)
 			}
