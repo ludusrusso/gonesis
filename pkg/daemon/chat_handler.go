@@ -20,15 +20,22 @@ type ChatRequest struct {
 	WorkDir   string `json:"work_dir,omitempty"`
 }
 
+// CommandInfo is a name+description pair returned by the commands.list event.
+type CommandInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 // ChatEvent is a server→client message on a NDJSON chat connection.
 type ChatEvent struct {
-	Type      string `json:"type"`
-	SessionID string `json:"session_id,omitempty"`
-	Content   string `json:"content,omitempty"`
-	Welcome   string `json:"welcome,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Args      string `json:"args,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Type      string        `json:"type"`
+	SessionID string        `json:"session_id,omitempty"`
+	Content   string        `json:"content,omitempty"`
+	Welcome   string        `json:"welcome,omitempty"`
+	Name      string        `json:"name,omitempty"`
+	Args      string        `json:"args,omitempty"`
+	Message   string        `json:"message,omitempty"`
+	Commands  []CommandInfo `json:"commands,omitempty"`
 }
 
 // handleChatConnection processes a long-lived NDJSON chat connection.
@@ -109,6 +116,15 @@ func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent
 	case "session.close":
 		logger.Info("session closed", "session_id", req.SessionID)
 		sessions.Close(s.ctx, req.SessionID)
+
+	case "commands.list":
+		var cmds []CommandInfo
+		if s.commands != nil {
+			for _, e := range s.commands.List() {
+				cmds = append(cmds, CommandInfo{Name: e.Name, Description: e.Description})
+			}
+		}
+		send(ChatEvent{Type: "commands.list", Commands: cmds})
 	}
 }
 

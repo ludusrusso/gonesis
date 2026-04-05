@@ -128,7 +128,7 @@ func (s *SocketServer) handleConnection(_ context.Context, conn net.Conn) {
 		return
 	}
 
-	if strings.HasPrefix(probe.Type, "session.") || probe.Type == "message" {
+	if strings.HasPrefix(probe.Type, "session.") || probe.Type == "message" || probe.Type == "commands.list" {
 		// NDJSON chat protocol.
 		if s.sessions == nil {
 			encoder := json.NewEncoder(conn)

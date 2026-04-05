@@ -294,6 +294,62 @@ func TestSlashCommandCleanResetsSession(t *testing.T) {
 	}
 }
 
+func TestCommandsList(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv := newTestServer(ctx)
+
+	sm := &SessionManager{
+		chatCfg: &session.Config{
+			Provider:    blockingProvider{},
+			WelcomeText: "hello",
+		},
+		sessions: make(map[string]*ManagedSession),
+	}
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+
+	logger := slog.Default()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		firstReq := &ChatRequest{Type: "commands.list"}
+		srv.handleChatConnection(serverConn, firstReq, sm, logger)
+	}()
+
+	dec := json.NewDecoder(clientConn)
+
+	var ev ChatEvent
+	if err := dec.Decode(&ev); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if ev.Type != "commands.list" {
+		t.Fatalf("expected commands.list event, got %s: %+v", ev.Type, ev)
+	}
+	if len(ev.Commands) == 0 {
+		t.Fatal("expected non-empty commands list")
+	}
+
+	// The test server has /help registered; verify it's in the list.
+	found := false
+	for _, cmd := range ev.Commands {
+		if cmd.Name == "help" {
+			found = true
+			if cmd.Description == "" {
+				t.Error("expected non-empty description for /help")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected /help in commands list, got %+v", ev.Commands)
+	}
+}
+
 func TestSlashSkillCommandDispatch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
