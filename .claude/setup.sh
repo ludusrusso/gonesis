@@ -1,3 +1,6 @@
 #!/bin/bash
-curl -fsSL https://mise.run | sh
-~/.local/bin/mise install --yes
+if ! command -v mise &>/dev/null; then
+  curl -fsSL https://mise.run | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+mise install --yes
