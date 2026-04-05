@@ -1,10 +1,15 @@
 package daemon
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
+
+	"wildgecu/pkg/command"
 )
 
 // ChatRequest is a client→server message on a NDJSON chat connection.
@@ -92,6 +97,10 @@ func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent
 		})
 
 	case "message":
+		if strings.HasPrefix(req.Content, "/") {
+			go s.handleSlashCommand(req, send, logger)
+			return
+		}
 		go s.handleChatMessage(req, send, sessions, logger)
 
 	case "session.interrupt":
@@ -102,6 +111,28 @@ func (s *SocketServer) dispatchChatRequest(req *ChatRequest, send func(ChatEvent
 		logger.Info("session closed", "session_id", req.SessionID)
 		sessions.Close(s.ctx, req.SessionID)
 	}
+}
+
+func (s *SocketServer) handleSlashCommand(req *ChatRequest, send func(ChatEvent), logger *slog.Logger) {
+	name, args := command.Parse(req.Content)
+	if name == "" {
+		send(ChatEvent{Type: "done", Content: "Usage: /<command> [args]"})
+		return
+	}
+
+	cmd := s.commands.Resolve(name)
+	if cmd == nil {
+		send(ChatEvent{Type: "done", Content: fmt.Sprintf("Unknown command: /%s", name)})
+		return
+	}
+
+	result, err := cmd.Execute(context.Background(), args)
+	if err != nil {
+		logger.Error("slash command error", "command", name, "error", err)
+		send(ChatEvent{Type: "error", Message: err.Error()})
+		return
+	}
+	send(ChatEvent{Type: "done", Content: result})
 }
 
 func (s *SocketServer) handleChatMessage(req *ChatRequest, send func(ChatEvent), sessions *SessionManager, logger *slog.Logger) {

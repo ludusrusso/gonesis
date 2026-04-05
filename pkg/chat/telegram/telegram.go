@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
+	"wildgecu/pkg/command"
 	"wildgecu/pkg/telegram/auth"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -24,6 +26,7 @@ type SessionProvider interface {
 type Bridge struct {
 	bot          *tgbotapi.BotAPI
 	sm           SessionProvider
+	commands     *command.Registry
 	auth         *auth.Store
 	chatSessions map[int64]string // chatID → session ID
 	mu           sync.RWMutex
@@ -31,8 +34,9 @@ type Bridge struct {
 }
 
 // New creates a new Telegram bridge using the given session provider.
-// authStore may be nil to allow all users.
-func New(token string, sm SessionProvider, authStore *auth.Store) (*Bridge, error) {
+// authStore may be nil to allow all users. commands may be nil to disable
+// slash command handling.
+func New(token string, sm SessionProvider, authStore *auth.Store, commands *command.Registry) (*Bridge, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, err
@@ -40,6 +44,7 @@ func New(token string, sm SessionProvider, authStore *auth.Store) (*Bridge, erro
 	return &Bridge{
 		bot:          bot,
 		sm:           sm,
+		commands:     commands,
 		auth:         authStore,
 		chatSessions: make(map[int64]string),
 		logger:       slog.Default(),
@@ -88,6 +93,31 @@ func (b *Bridge) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	if msg.Text == "/start" {
 		b.sendMessages(chatID, b.sm.WelcomeText())
 		return
+	}
+
+	// Intercept slash commands and route to the command registry.
+	if b.commands != nil && strings.HasPrefix(msg.Text, "/") {
+		name, args := command.Parse(msg.Text)
+		if name != "" {
+			cmd := b.commands.Resolve(name)
+			if cmd == nil {
+				reply := tgbotapi.NewMessage(chatID, fmt.Sprintf("Unknown command: /%s", name))
+				if _, err := b.bot.Send(reply); err != nil {
+					b.logger.Error("telegram send error", "error", err)
+				}
+				return
+			}
+			result, err := cmd.Execute(ctx, args)
+			if err != nil {
+				reply := tgbotapi.NewMessage(chatID, fmt.Sprintf("Error: %v", err))
+				if _, err := b.bot.Send(reply); err != nil {
+					b.logger.Error("telegram send error", "error", err)
+				}
+				return
+			}
+			b.sendMessages(chatID, result)
+			return
+		}
 	}
 
 	sessionID := b.getOrCreateSession(chatID)

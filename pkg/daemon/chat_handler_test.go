@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
+	"wildgecu/pkg/command"
 	"wildgecu/pkg/provider"
 	"wildgecu/pkg/session"
 )
@@ -79,5 +81,117 @@ func TestInterruptDuringMessage(t *testing.T) {
 	}
 	if ev.Type != "error" {
 		t.Fatalf("expected error event after interrupt, got %s: %+v", ev.Type, ev)
+	}
+}
+
+// newTestServer creates a SocketServer with a command registry containing /help.
+func newTestServer(ctx context.Context) *SocketServer {
+	reg := command.NewRegistry("")
+	help := command.NewHelpCommand(reg)
+	reg.Register(help)
+	return &SocketServer{ctx: ctx, commands: reg}
+}
+
+func TestSlashCommandHelp(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv := newTestServer(ctx)
+
+	sm := &SessionManager{
+		chatCfg: &session.Config{
+			Provider:    blockingProvider{},
+			WelcomeText: "hello",
+		},
+		sessions: make(map[string]*ManagedSession),
+	}
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+
+	logger := slog.Default()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		firstReq := &ChatRequest{Type: "session.create"}
+		srv.handleChatConnection(serverConn, firstReq, sm, logger)
+	}()
+
+	enc := json.NewEncoder(clientConn)
+	dec := json.NewDecoder(clientConn)
+
+	// Read session.created
+	var created ChatEvent
+	if err := dec.Decode(&created); err != nil {
+		t.Fatalf("decode session.created: %v", err)
+	}
+
+	// Send /help command
+	enc.Encode(ChatRequest{Type: "message", SessionID: created.SessionID, Content: "/help"})
+
+	var ev ChatEvent
+	if err := dec.Decode(&ev); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if ev.Type != "done" {
+		t.Fatalf("expected done event, got %s: %+v", ev.Type, ev)
+	}
+	if ev.Content == "" {
+		t.Fatal("expected non-empty help output")
+	}
+	if !strings.Contains(ev.Content, "/help") {
+		t.Errorf("expected help output to contain '/help', got %q", ev.Content)
+	}
+}
+
+func TestSlashCommandUnknown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv := newTestServer(ctx)
+
+	sm := &SessionManager{
+		chatCfg: &session.Config{
+			Provider:    blockingProvider{},
+			WelcomeText: "hello",
+		},
+		sessions: make(map[string]*ManagedSession),
+	}
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+
+	logger := slog.Default()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		firstReq := &ChatRequest{Type: "session.create"}
+		srv.handleChatConnection(serverConn, firstReq, sm, logger)
+	}()
+
+	enc := json.NewEncoder(clientConn)
+	dec := json.NewDecoder(clientConn)
+
+	var created ChatEvent
+	if err := dec.Decode(&created); err != nil {
+		t.Fatalf("decode session.created: %v", err)
+	}
+
+	// Send unknown slash command
+	enc.Encode(ChatRequest{Type: "message", SessionID: created.SessionID, Content: "/typo"})
+
+	var ev ChatEvent
+	if err := dec.Decode(&ev); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if ev.Type != "done" {
+		t.Fatalf("expected done event, got %s: %+v", ev.Type, ev)
+	}
+	if !strings.Contains(ev.Content, "Unknown command: /typo") {
+		t.Errorf("expected unknown command error, got %q", ev.Content)
 	}
 }

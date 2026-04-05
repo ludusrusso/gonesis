@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"wildgecu/pkg/command"
 )
 
 // CommandHandler processes a daemon request and returns a response.
@@ -19,6 +21,7 @@ type SocketServer struct {
 	listener net.Listener
 	handlers map[string]CommandHandler
 	sessions *SessionManager
+	commands *command.Registry
 	logger   *slog.Logger
 	path     string
 	ctx      context.Context
@@ -55,6 +58,11 @@ func NewSocketServer(logger *slog.Logger) (*SocketServer, error) {
 // SetSessions configures the session manager for NDJSON chat connections.
 func (s *SocketServer) SetSessions(sm *SessionManager) {
 	s.sessions = sm
+}
+
+// SetCommands configures the slash command registry for NDJSON chat connections.
+func (s *SocketServer) SetCommands(r *command.Registry) {
+	s.commands = r
 }
 
 // Handle registers a handler for the given command name.

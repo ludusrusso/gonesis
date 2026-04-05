@@ -13,6 +13,7 @@ import (
 
 	"wildgecu/pkg/agent"
 	"wildgecu/pkg/chat/telegram"
+	"wildgecu/pkg/command"
 	"wildgecu/pkg/cron"
 	"wildgecu/pkg/home"
 	"wildgecu/pkg/provider/factory"
@@ -86,6 +87,12 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	srv.SetSessions(sm)
 	logger.Info("session manager ready")
+
+	// --- Slash command registry ---
+	cmdRegistry := command.NewRegistry(h.SkillsDir())
+	helpCmd := command.NewHelpCommand(cmdRegistry)
+	cmdRegistry.Register(helpCmd)
+	srv.SetCommands(cmdRegistry)
 
 	// --- Cron scheduler (declared early so status handler can access it) ---
 
@@ -203,7 +210,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	// --- Telegram bot ---
 	if cfg.TelegramToken != "" && sm != nil {
-		tgBridge, err := telegram.New(cfg.TelegramToken, sm, tgAuth)
+		tgBridge, err := telegram.New(cfg.TelegramToken, sm, tgAuth, cmdRegistry)
 		if err != nil {
 			logger.Warn("telegram bot disabled", "error", err)
 		} else {
