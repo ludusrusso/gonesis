@@ -13,9 +13,10 @@ const spawnAgentName = "spawn_agent"
 const defaultSubagentSystemPrompt = "You are a helpful assistant. Complete the given task and provide a clear response."
 
 type spawnAgentInput struct {
-	Prompt       string `json:"prompt" description:"The task or question for the subagent"`
-	SystemPrompt string `json:"system_prompt,omitempty" description:"Optional system prompt for the subagent"`
-	Model        string `json:"model,omitempty" description:"Optional model override (e.g. openai/gpt-4o-mini)"`
+	Prompt       string   `json:"prompt" description:"The task or question for the subagent"`
+	SystemPrompt string   `json:"system_prompt,omitempty" description:"Optional system prompt for the subagent"`
+	Model        string   `json:"model,omitempty" description:"Optional model override (e.g. openai/gpt-4o-mini)"`
+	Tools        []string `json:"tools,omitempty" description:"Optional list of tool names the subagent can use. When omitted, inherits all parent tools except spawn_agent."`
 }
 
 type spawnAgentOutput struct {
@@ -50,21 +51,30 @@ func newSpawnAgentTool(defaultProvider provider.Provider, reg *tool.Registry, re
 				systemPrompt = in.SystemPrompt
 			}
 
-			// Build child tools: all parent tools minus spawn_agent.
-			var childToolDefs []provider.Tool
-			var childNames []string
+			// Build child tools: use explicit list if provided,
+			// otherwise inherit all parent tools minus spawn_agent.
+			var childReg *tool.Registry
 			if reg != nil {
-				for _, t := range reg.Tools() {
-					if t.Name != spawnAgentName {
-						childToolDefs = append(childToolDefs, t)
-						childNames = append(childNames, t.Name)
+				if in.Tools != nil {
+					childReg = reg.Subset(in.Tools)
+				} else {
+					var childNames []string
+					for _, t := range reg.Tools() {
+						if t.Name != spawnAgentName {
+							childNames = append(childNames, t.Name)
+						}
 					}
+					childReg = reg.Subset(childNames)
 				}
 			}
 
+			var childToolDefs []provider.Tool
 			var executor provider.ToolExecutor
-			if reg != nil && len(childNames) > 0 {
-				executor = reg.Subset(childNames).Executor()
+			if childReg != nil {
+				childToolDefs = childReg.Tools()
+				if len(childToolDefs) > 0 {
+					executor = childReg.Executor()
+				}
 			}
 
 			messages := []provider.Message{

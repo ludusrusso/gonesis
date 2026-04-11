@@ -57,6 +57,9 @@ func TestSubagentTools(t *testing.T) {
 		if _, found := props["model"]; !found {
 			t.Error("expected model in properties")
 		}
+		if _, found := props["tools"]; !found {
+			t.Error("expected tools in properties")
+		}
 
 		required, hasReq := params["required"].([]any)
 		if !hasReq {
@@ -236,6 +239,105 @@ func TestSpawnAgent(t *testing.T) {
 		}
 		if !found {
 			t.Error("expected dummy_tool in child tools")
+		}
+	})
+
+	t.Run("explicit tools list restricts child tools", func(t *testing.T) {
+		mp := newMockProvider("ok")
+
+		dummyA := tool.NewTool("tool_a", "Tool A",
+			func(ctx context.Context, in struct{}) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+		dummyB := tool.NewTool("tool_b", "Tool B",
+			func(ctx context.Context, in struct{}) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+		dummyC := tool.NewTool("tool_c", "Tool C",
+			func(ctx context.Context, in struct{}) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+
+		reg := tool.NewRegistry(dummyA, dummyB, dummyC)
+		tl := SubagentTools(mp, reg, nil)[0]
+
+		_, err := tl.Execute(context.Background(), map[string]any{
+			"prompt": "hello",
+			"tools":  []any{"tool_a", "tool_c"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		call := mp.calls[0]
+		names := map[string]bool{}
+		for _, td := range call.Tools {
+			names[td.Name] = true
+		}
+		if !names["tool_a"] {
+			t.Error("expected tool_a in child tools")
+		}
+		if !names["tool_c"] {
+			t.Error("expected tool_c in child tools")
+		}
+		if names["tool_b"] {
+			t.Error("tool_b should be excluded from child tools")
+		}
+	})
+
+	t.Run("empty tools list gives child no tools", func(t *testing.T) {
+		mp := newMockProvider("ok")
+
+		dummyA := tool.NewTool("tool_a", "Tool A",
+			func(ctx context.Context, in struct{}) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+		reg := tool.NewRegistry(dummyA)
+		tl := SubagentTools(mp, reg, nil)[0]
+
+		_, err := tl.Execute(context.Background(), map[string]any{
+			"prompt": "hello",
+			"tools":  []any{},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		call := mp.calls[0]
+		if len(call.Tools) != 0 {
+			t.Errorf("expected no tools, got %d", len(call.Tools))
+		}
+	})
+
+	t.Run("unknown tool names are ignored", func(t *testing.T) {
+		mp := newMockProvider("ok")
+
+		dummyA := tool.NewTool("tool_a", "Tool A",
+			func(ctx context.Context, in struct{}) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+		reg := tool.NewRegistry(dummyA)
+		tl := SubagentTools(mp, reg, nil)[0]
+
+		_, err := tl.Execute(context.Background(), map[string]any{
+			"prompt": "hello",
+			"tools":  []any{"tool_a", "nonexistent_tool"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		call := mp.calls[0]
+		if len(call.Tools) != 1 {
+			t.Fatalf("expected 1 tool, got %d", len(call.Tools))
+		}
+		if call.Tools[0].Name != "tool_a" {
+			t.Errorf("expected tool_a, got %q", call.Tools[0].Name)
 		}
 	})
 
