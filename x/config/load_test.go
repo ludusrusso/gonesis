@@ -579,6 +579,58 @@ default_model: gemini/flash
 		}
 	})
 
+	t.Run("ValidateModelRefAcceptsDirectProviderModel", func(t *testing.T) {
+		cfg := &Config{
+			Providers: map[string]ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			Models: map[string]string{},
+		}
+		if err := cfg.ValidateModelRef("gemini/flash"); err != nil {
+			t.Errorf("ValidateModelRef() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("ValidateModelRefAcceptsKnownAlias", func(t *testing.T) {
+		cfg := &Config{
+			Providers: map[string]ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			Models: map[string]string{
+				"fast": "gemini/flash",
+			},
+		}
+		if err := cfg.ValidateModelRef("fast"); err != nil {
+			t.Errorf("ValidateModelRef() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("ValidateModelRefRejectsUnknownAlias", func(t *testing.T) {
+		cfg := &Config{
+			Providers: map[string]ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			Models: map[string]string{
+				"fast": "gemini/flash",
+			},
+		}
+		if err := cfg.ValidateModelRef("nonexistent"); err == nil {
+			t.Error("ValidateModelRef() expected error for unknown alias, got nil")
+		}
+	})
+
+	t.Run("ValidateModelRefRejectsUnknownProvider", func(t *testing.T) {
+		cfg := &Config{
+			Providers: map[string]ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			Models: map[string]string{},
+		}
+		if err := cfg.ValidateModelRef("openai/gpt-4o"); err == nil {
+			t.Error("ValidateModelRef() expected error for unknown provider, got nil")
+		}
+	})
+
 	t.Run("UnknownFieldsIgnored", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, "wildgecu.yaml")

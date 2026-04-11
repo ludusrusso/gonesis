@@ -125,7 +125,7 @@ func (c *Config) validate() error {
 		return fmt.Errorf("config: default_model is required")
 	}
 
-	if err := c.validateModelRef(c.DefaultModel); err != nil {
+	if err := c.ValidateModelRef(c.DefaultModel); err != nil {
 		return fmt.Errorf("config: default_model: %w", err)
 	}
 
@@ -151,9 +151,9 @@ func (c *Config) validateProviderModel(s string) error {
 	return nil
 }
 
-// validateModelRef checks that s is either a valid "provider/model" string or
+// ValidateModelRef checks that s is either a valid "provider/model" string or
 // a known alias from the Models map.
-func (c *Config) validateModelRef(s string) error {
+func (c *Config) ValidateModelRef(s string) error {
 	if strings.Contains(s, "/") {
 		return c.validateProviderModel(s)
 	}

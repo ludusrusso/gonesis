@@ -95,6 +95,10 @@ func initConfig() {
 	}
 
 	if modelFlag != "" {
+		if err := cfg.ValidateModelRef(modelFlag); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: --model: %v\n", err)
+			os.Exit(1)
+		}
 		cfg.DefaultModel = modelFlag
 	}
 
