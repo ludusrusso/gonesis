@@ -52,6 +52,76 @@ default_model: gemini/global-model
 		}
 	})
 
+	t.Run("ModelFlagOverridesDefaultModel", func(t *testing.T) {
+		tmpHome := t.TempDir()
+		t.Setenv("HOME", tmpHome)
+
+		config.SetGlobalHome("")
+		homeFlag = ""
+		modelFlag = ""
+		appConfig = nil
+
+		globalDir := filepath.Join(tmpHome, ".wildgecu")
+		if err := os.MkdirAll(globalDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		cfgContent := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+  openai:
+    type: openai
+    api_key: key
+models:
+  fast: "gemini/flash"
+  smart: "openai/gpt-4o"
+default_model: fast
+`)
+		if err := os.WriteFile(filepath.Join(globalDir, "wildgecu.yaml"), cfgContent, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		modelFlag = "smart"
+		initConfig()
+
+		if appConfig.DefaultModel != "smart" {
+			t.Errorf("DefaultModel = %q, want %q", appConfig.DefaultModel, "smart")
+		}
+	})
+
+	t.Run("ModelFlagAcceptsDirectProviderModel", func(t *testing.T) {
+		tmpHome := t.TempDir()
+		t.Setenv("HOME", tmpHome)
+
+		config.SetGlobalHome("")
+		homeFlag = ""
+		modelFlag = ""
+		appConfig = nil
+
+		globalDir := filepath.Join(tmpHome, ".wildgecu")
+		if err := os.MkdirAll(globalDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		cfgContent := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+default_model: gemini/flash
+`)
+		if err := os.WriteFile(filepath.Join(globalDir, "wildgecu.yaml"), cfgContent, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		modelFlag = "gemini/pro"
+		initConfig()
+
+		if appConfig.DefaultModel != "gemini/pro" {
+			t.Errorf("DefaultModel = %q, want %q", appConfig.DefaultModel, "gemini/pro")
+		}
+	})
+
 	t.Run("HomeOverrideLoadsDifferentConfig", func(t *testing.T) {
 		tmpHome := t.TempDir()
 		customHome := t.TempDir()
@@ -59,6 +129,7 @@ default_model: gemini/global-model
 		t.Setenv("HOME", tmpHome)
 		config.SetGlobalHome("")
 		homeFlag = customHome
+		modelFlag = ""
 		appConfig = nil
 
 		cfgContent := []byte(`providers:

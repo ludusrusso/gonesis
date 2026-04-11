@@ -384,6 +384,201 @@ default_model: openai/gpt-4
 		}
 	})
 
+	t.Run("ParsesModelsMap", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  local:
+    type: ollama
+  openai:
+    type: openai
+    api_key: key
+models:
+  fast: "local/llama3"
+  smart: "openai/gpt-4o"
+default_model: smart
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if len(cfg.Models) != 2 {
+			t.Fatalf("len(Models) = %d, want 2", len(cfg.Models))
+		}
+		if cfg.Models["fast"] != "local/llama3" {
+			t.Errorf("Models[fast] = %q, want %q", cfg.Models["fast"], "local/llama3")
+		}
+		if cfg.Models["smart"] != "openai/gpt-4o" {
+			t.Errorf("Models[smart] = %q, want %q", cfg.Models["smart"], "openai/gpt-4o")
+		}
+		if cfg.DefaultModel != "smart" {
+			t.Errorf("DefaultModel = %q, want %q", cfg.DefaultModel, "smart")
+		}
+	})
+
+	t.Run("ErrorOnAliasNameContainingSlash", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+models:
+  "bad/alias": "gemini/flash"
+default_model: gemini/flash
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := Load(cfgPath)
+		if err == nil {
+			t.Error("Load() expected error for alias containing slash, got nil")
+		}
+		if !strings.Contains(err.Error(), "bad/alias") {
+			t.Errorf("error should mention alias name, got: %s", err.Error())
+		}
+	})
+
+	t.Run("ErrorOnAliasValueInvalidFormat", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+models:
+  broken: "no-slash"
+default_model: gemini/flash
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := Load(cfgPath)
+		if err == nil {
+			t.Error("Load() expected error for alias value without provider/model format, got nil")
+		}
+	})
+
+	t.Run("ErrorOnAliasReferencingUnknownProvider", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+models:
+  myalias: "unknown/model"
+default_model: gemini/flash
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := Load(cfgPath)
+		if err == nil {
+			t.Error("Load() expected error for alias referencing unknown provider, got nil")
+		}
+	})
+
+	t.Run("DefaultModelAcceptsAlias", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+models:
+  fast: "gemini/flash"
+default_model: fast
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if cfg.DefaultModel != "fast" {
+			t.Errorf("DefaultModel = %q, want %q", cfg.DefaultModel, "fast")
+		}
+	})
+
+	t.Run("DefaultModelAcceptsDirectProviderModel", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+default_model: gemini/flash
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if cfg.DefaultModel != "gemini/flash" {
+			t.Errorf("DefaultModel = %q, want %q", cfg.DefaultModel, "gemini/flash")
+		}
+	})
+
+	t.Run("ErrorOnDefaultModelUnknownAlias", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+models:
+  fast: "gemini/flash"
+default_model: nonexistent
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := Load(cfgPath)
+		if err == nil {
+			t.Error("Load() expected error for default_model referencing unknown alias, got nil")
+		}
+	})
+
+	t.Run("EmptyModelsMapIsValid", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  gemini:
+    type: gemini
+    api_key: key
+default_model: gemini/flash
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if len(cfg.Models) != 0 {
+			t.Errorf("Models should be nil or empty, got %v", cfg.Models)
+		}
+	})
+
 	t.Run("UnknownFieldsIgnored", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, "wildgecu.yaml")

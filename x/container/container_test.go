@@ -182,6 +182,112 @@ func TestContainer(t *testing.T) {
 		}
 	})
 
+	t.Run("GetResolvesAlias", func(t *testing.T) {
+		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+			return &fakeProvider{id: name}, nil
+		}
+
+		cfg := &config.Config{
+			Providers: map[string]config.ProviderConfig{
+				"local": {Type: "ollama"},
+			},
+			Models: map[string]string{
+				"fast": "local/llama3",
+			},
+			DefaultModel: "fast",
+		}
+
+		c := New(cfg, factory)
+
+		p, err := c.Get(context.Background(), "fast")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		fp := p.(*fakeProvider)
+		if fp.id != "local" {
+			t.Errorf("provider id = %q, want %q", fp.id, "local")
+		}
+	})
+
+	t.Run("GetDirectStillWorksWithModelsMap", func(t *testing.T) {
+		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+			return &fakeProvider{id: name}, nil
+		}
+
+		cfg := &config.Config{
+			Providers: map[string]config.ProviderConfig{
+				"local":  {Type: "ollama"},
+				"openai": {Type: "openai", APIKey: "key"},
+			},
+			Models: map[string]string{
+				"fast": "local/llama3",
+			},
+			DefaultModel: "fast",
+		}
+
+		c := New(cfg, factory)
+
+		p, err := c.Get(context.Background(), "openai/gpt-4o")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		fp := p.(*fakeProvider)
+		if fp.id != "openai" {
+			t.Errorf("provider id = %q, want %q", fp.id, "openai")
+		}
+	})
+
+	t.Run("GetErrorsOnUnknownAlias", func(t *testing.T) {
+		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+			return &fakeProvider{id: name}, nil
+		}
+
+		cfg := &config.Config{
+			Providers: map[string]config.ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			Models:       map[string]string{},
+			DefaultModel: "gemini/flash",
+		}
+
+		c := New(cfg, factory)
+		_, err := c.Get(context.Background(), "nonexistent")
+		if err == nil {
+			t.Error("Get() expected error for unknown alias, got nil")
+		}
+	})
+
+	t.Run("AliasCachesLikeDirectReference", func(t *testing.T) {
+		var calls atomic.Int32
+		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+			calls.Add(1)
+			return &fakeProvider{id: name}, nil
+		}
+
+		cfg := &config.Config{
+			Providers: map[string]config.ProviderConfig{
+				"local": {Type: "ollama"},
+			},
+			Models: map[string]string{
+				"fast": "local/llama3",
+			},
+			DefaultModel: "fast",
+		}
+
+		c := New(cfg, factory)
+		ctx := context.Background()
+
+		p1, _ := c.Get(ctx, "fast")
+		p2, _ := c.Get(ctx, "fast")
+
+		if p1 != p2 {
+			t.Error("Get() returned different providers for same alias; expected cached instance")
+		}
+		if calls.Load() != 1 {
+			t.Errorf("factory called %d times, want 1", calls.Load())
+		}
+	})
+
 	t.Run("UnusedProvidersNotInstantiated", func(t *testing.T) {
 		var calls atomic.Int32
 		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {

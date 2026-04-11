@@ -32,12 +32,23 @@ func New(cfg *config.Config, factory Factory) *Container {
 	}
 }
 
-// Get returns a provider for the given "provider/model" string.
-// Providers are created lazily on first use and cached per provider/model pair.
+// Get returns a provider for the given model reference.
+// The reference can be a "provider/model" string or a short alias defined in
+// the config's Models map. Providers are created lazily on first use and
+// cached per resolved provider/model pair.
 func (c *Container) Get(ctx context.Context, model string) (provider.Provider, error) {
-	parts := strings.SplitN(model, "/", 2)
+	resolved := model
+	if !strings.Contains(model, "/") {
+		alias, ok := c.cfg.Models[model]
+		if !ok {
+			return nil, fmt.Errorf("container: unknown model alias %q", model)
+		}
+		resolved = alias
+	}
+
+	parts := strings.SplitN(resolved, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("container: model must be in provider/model format, got %q", model)
+		return nil, fmt.Errorf("container: model must be in provider/model format, got %q", resolved)
 	}
 
 	providerName := parts[0]
@@ -45,7 +56,7 @@ func (c *Container) Get(ctx context.Context, model string) (provider.Provider, e
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if p, ok := c.cache[model]; ok {
+	if p, ok := c.cache[resolved]; ok {
 		return p, nil
 	}
 
@@ -59,6 +70,6 @@ func (c *Container) Get(ctx context.Context, model string) (provider.Provider, e
 		return nil, fmt.Errorf("container: create provider %q: %w", providerName, err)
 	}
 
-	c.cache[model] = p
+	c.cache[resolved] = p
 	return p, nil
 }

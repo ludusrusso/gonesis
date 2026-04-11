@@ -22,6 +22,7 @@ type ProviderConfig struct {
 // Config is the top-level application configuration.
 type Config struct {
 	Providers     map[string]ProviderConfig `yaml:"providers"`
+	Models        map[string]string         `yaml:"models"`
 	DefaultModel  string                    `yaml:"default_model"`
 	TelegramToken string                    `yaml:"telegram_token"`
 }
@@ -110,17 +111,22 @@ func (c *Config) validate() error {
 	if len(c.Providers) == 0 {
 		return fmt.Errorf("config: providers map must not be empty")
 	}
+
+	for name, target := range c.Models {
+		if strings.Contains(name, "/") {
+			return fmt.Errorf("config: model alias %q must not contain '/'", name)
+		}
+		if err := c.validateProviderModel(target); err != nil {
+			return fmt.Errorf("config: model alias %q: %w", name, err)
+		}
+	}
+
 	if c.DefaultModel == "" {
 		return fmt.Errorf("config: default_model is required")
 	}
 
-	parts := strings.SplitN(c.DefaultModel, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return fmt.Errorf("config: default_model must be in provider/model format, got %q", c.DefaultModel)
-	}
-
-	if _, ok := c.Providers[parts[0]]; !ok {
-		return fmt.Errorf("config: default_model references unknown provider %q", parts[0])
+	if err := c.validateModelRef(c.DefaultModel); err != nil {
+		return fmt.Errorf("config: default_model: %w", err)
 	}
 
 	for name, p := range c.Providers {
@@ -129,5 +135,30 @@ func (c *Config) validate() error {
 		}
 	}
 
+	return nil
+}
+
+// validateProviderModel checks that s is a valid "provider/model" string
+// referencing a known provider.
+func (c *Config) validateProviderModel(s string) error {
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return fmt.Errorf("must be in provider/model format, got %q", s)
+	}
+	if _, ok := c.Providers[parts[0]]; !ok {
+		return fmt.Errorf("references unknown provider %q", parts[0])
+	}
+	return nil
+}
+
+// validateModelRef checks that s is either a valid "provider/model" string or
+// a known alias from the Models map.
+func (c *Config) validateModelRef(s string) error {
+	if strings.Contains(s, "/") {
+		return c.validateProviderModel(s)
+	}
+	if _, ok := c.Models[s]; !ok {
+		return fmt.Errorf("unknown model alias %q", s)
+	}
 	return nil
 }

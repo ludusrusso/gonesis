@@ -20,6 +20,7 @@ var Date = "unknown"
 
 var debugFlag bool
 var homeFlag string
+var modelFlag string
 
 // appConfig holds the parsed config, set during initConfig.
 var appConfig *config.Config
@@ -39,6 +40,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&homeFlag, "home", "", "override home directory (default: ~/.wildgecu)")
+	rootCmd.PersistentFlags().StringVar(&modelFlag, "model", "", "override default model (alias or provider/model)")
 	rootCmd.Flags().BoolVar(&debugFlag, "debug", false, "enable debug logging to ~/.wildgecu/debug/<timestamp>.md")
 }
 
@@ -90,6 +92,10 @@ func initConfig() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if modelFlag != "" {
+		cfg.DefaultModel = modelFlag
 	}
 
 	appConfig = cfg
