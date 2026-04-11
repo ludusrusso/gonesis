@@ -21,12 +21,19 @@ func DefaultFactory(ctx context.Context, _ string, pc config.ProviderConfig) (pr
 		}
 		return gemini.New(ctx, pc.APIKey, "", opts...)
 
-	case "openai":
+	case "openai", "mistral", "regolo":
 		var opts []openai.Option
 		if pc.BaseURL != "" {
 			opts = append(opts, openai.WithBaseURL(pc.BaseURL))
 		}
 		return openai.New(pc.APIKey, "", opts...), nil
+
+	case "ollama":
+		var opts []openai.Option
+		if pc.BaseURL != "" {
+			opts = append(opts, openai.WithBaseURL(pc.BaseURL))
+		}
+		return openai.New("", "", opts...), nil
 
 	default:
 		return nil, fmt.Errorf("unknown provider type %q", pc.Type)
