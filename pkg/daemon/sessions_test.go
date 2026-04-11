@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"wildgecu/pkg/agent"
@@ -204,6 +205,77 @@ func TestRunSkillTurnStream(t *testing.T) {
 
 		if cp.lastSystemPrompt != "base prompt" {
 			t.Errorf("after regular turn, SystemPrompt = %q, want %q", cp.lastSystemPrompt, "base prompt")
+		}
+	})
+}
+
+// toolCallProvider makes one tool call then returns text.
+type toolCallProvider struct {
+	callNum int
+}
+
+func (p *toolCallProvider) Generate(_ context.Context, params *provider.GenerateParams) (*provider.Response, error) {
+	p.callNum++
+	if p.callNum == 1 {
+		return &provider.Response{
+			Message: provider.Message{
+				Role: provider.RoleModel,
+				ToolCalls: []provider.ToolCall{
+					{Name: "test_tool", ID: "t1", Args: map[string]any{"x": 1}},
+				},
+			},
+		}, nil
+	}
+	return &provider.Response{
+		Message: provider.Message{Role: provider.RoleModel, Content: "done"},
+	}, nil
+}
+
+func TestRunTurnStream(t *testing.T) {
+	t.Run("callback is accessible from context during tool execution", func(t *testing.T) {
+		// This is the critical test: when RunTurnStream sets cfg.OnToolCall,
+		// tool executors must be able to retrieve it via GetToolCallCallback(ctx).
+		// This is the path spawn_agent uses to surface subagent tool calls.
+		var contextCallbackNil bool
+		executor := func(ctx context.Context, tc provider.ToolCall) (string, error) {
+			cb := provider.GetToolCallCallback(ctx)
+			contextCallbackNil = (cb == nil)
+			return "ok", nil
+		}
+
+		p := &toolCallProvider{}
+		sm := &SessionManager{
+			chatCfg: &session.Config{
+				Provider:     p,
+				SystemPrompt: "test",
+				Tools:        []provider.Tool{{Name: "test_tool"}},
+				Executor:     executor,
+			},
+			sessions: make(map[string]*ManagedSession),
+		}
+		sess := sm.Create()
+
+		var mu sync.Mutex
+		var toolCalls []string
+		onToolCall := func(name, args, agent string) {
+			mu.Lock()
+			toolCalls = append(toolCalls, name)
+			mu.Unlock()
+		}
+
+		_, err := sm.RunTurnStream(context.Background(), sess.ID, "hello", nil, onToolCall, nil)
+		if err != nil {
+			t.Fatalf("RunTurnStream error: %v", err)
+		}
+
+		if contextCallbackNil {
+			t.Error("GetToolCallCallback(ctx) returned nil during tool execution — spawn_agent cannot propagate subagent tool calls")
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		if len(toolCalls) == 0 {
+			t.Error("expected onToolCall to be invoked at least once")
 		}
 	})
 }

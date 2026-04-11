@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -222,6 +223,222 @@ func TestExecuteToolsParallel(t *testing.T) {
 		}
 		if len(msgs) != 3 {
 			t.Fatalf("expected 3 messages, got %d", len(msgs))
+		}
+	})
+}
+
+// mockStreamProvider implements StreamProvider for testing.
+type mockStreamProvider struct {
+	calls []GenerateParams
+	mu    sync.Mutex
+	fn    func(ctx context.Context, params *GenerateParams) (*Response, error)
+}
+
+func (m *mockStreamProvider) Generate(ctx context.Context, params *GenerateParams) (*Response, error) {
+	m.mu.Lock()
+	m.calls = append(m.calls, *params)
+	m.mu.Unlock()
+	return m.fn(ctx, params)
+}
+
+func (m *mockStreamProvider) GenerateStream(ctx context.Context, params *GenerateParams) (<-chan StreamChunk, <-chan error) {
+	chunks := make(chan StreamChunk, 1)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(chunks)
+		resp, err := m.fn(ctx, params)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		m.mu.Lock()
+		m.calls = append(m.calls, *params)
+		m.mu.Unlock()
+		chunks <- StreamChunk{
+			Content:   resp.Message.Content,
+			ToolCalls: resp.Message.ToolCalls,
+		}
+		errCh <- nil
+	}()
+
+	return chunks, errCh
+}
+
+func TestRunAgentLoopStream(t *testing.T) {
+	t.Run("callback accessible from context during tool execution", func(t *testing.T) {
+		// This test verifies that when RunAgentLoopStream stores the callback
+		// in context, tool executors can retrieve it via GetToolCallCallback.
+		// This is the code path used by spawn_agent to propagate callbacks.
+		var callNum int
+		sp := &mockStreamProvider{
+			fn: func(_ context.Context, params *GenerateParams) (*Response, error) {
+				callNum++
+				if callNum == 1 {
+					return &Response{
+						Message: Message{
+							Role:      RoleModel,
+							ToolCalls: []ToolCall{{Name: "my_tool", ID: "t1", Args: map[string]any{}}},
+						},
+					}, nil
+				}
+				return &Response{
+					Message: Message{Role: RoleModel, Content: "done"},
+				}, nil
+			},
+		}
+
+		var contextCallbackNil bool
+		executor := func(ctx context.Context, tc ToolCall) (string, error) {
+			cb := GetToolCallCallback(ctx)
+			contextCallbackNil = (cb == nil)
+			return "ok", nil
+		}
+
+		onToolCall := ToolCallCallback(func(name, args, agent string) {})
+		onChunk := StreamCallback(func(chunk string) {})
+
+		_, _, err := RunAgentLoopStream(
+			context.Background(), sp, "sys",
+			[]Message{{Role: RoleUser, Content: "hello"}},
+			[]Tool{{Name: "my_tool"}},
+			executor, onChunk, onToolCall, nil,
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if contextCallbackNil {
+			t.Error("GetToolCallCallback(ctx) returned nil inside tool executor — callback not propagated via context")
+		}
+	})
+
+	t.Run("subagent callback propagation through streaming path", func(t *testing.T) {
+		// Simulates the full subagent callback chain:
+		// 1. Parent agent (streaming) makes a tool call to "spawn_agent"
+		// 2. spawn_agent extracts callback from context, wraps it, calls RunAgentLoop
+		// 3. Child agent makes a tool call
+		// 4. Child callback fires and propagates to parent's callback with agent label
+		var parentCallNum int
+		parentProvider := &mockStreamProvider{
+			fn: func(_ context.Context, params *GenerateParams) (*Response, error) {
+				parentCallNum++
+				if parentCallNum == 1 {
+					return &Response{
+						Message: Message{
+							Role:      RoleModel,
+							ToolCalls: []ToolCall{{Name: "spawn_agent", ID: "sa1", Args: map[string]any{}}},
+						},
+					}, nil
+				}
+				return &Response{
+					Message: Message{Role: RoleModel, Content: "parent done"},
+				}, nil
+			},
+		}
+
+		var childCallNum int
+		childProvider := &mockStreamProvider{
+			fn: func(_ context.Context, params *GenerateParams) (*Response, error) {
+				childCallNum++
+				if childCallNum == 1 {
+					return &Response{
+						Message: Message{
+							Role:      RoleModel,
+							ToolCalls: []ToolCall{{Name: "child_tool", ID: "ct1", Args: map[string]any{"x": 1}}},
+						},
+					}, nil
+				}
+				return &Response{
+					Message: Message{Role: RoleModel, Content: "child done"},
+				}, nil
+			},
+		}
+
+		type callRecord struct {
+			name, args, agent string
+		}
+		var mu sync.Mutex
+		var recorded []callRecord
+
+		onToolCall := ToolCallCallback(func(name, args, agent string) {
+			mu.Lock()
+			recorded = append(recorded, callRecord{name, args, agent})
+			mu.Unlock()
+		})
+
+		// Parent executor: when "spawn_agent" is called, simulate subagent behavior
+		parentExecutor := func(ctx context.Context, tc ToolCall) (string, error) {
+			if tc.Name == "spawn_agent" {
+				// This is what subagent.go does: extract callback from context and wrap it
+				parentCb := GetToolCallCallback(ctx)
+				if parentCb == nil {
+					return `{"error": "no callback in context"}`, nil
+				}
+				childOnToolCall := ToolCallCallback(func(name, args, _ string) {
+					parentCb(name, args, "test-subagent")
+				})
+
+				childExecutor := func(ctx context.Context, tc ToolCall) (string, error) {
+					return `{"result": "ok"}`, nil
+				}
+
+				msgs, _, err := RunAgentLoop(
+					ctx, childProvider, "child system",
+					[]Message{{Role: RoleUser, Content: "child task"}},
+					[]Tool{{Name: "child_tool"}},
+					childExecutor, childOnToolCall, nil,
+				)
+				if err != nil {
+					return "", err
+				}
+				for i := len(msgs) - 1; i >= 0; i-- {
+					if msgs[i].Role == RoleModel && msgs[i].Content != "" {
+						return msgs[i].Content, nil
+					}
+				}
+				return "", nil
+			}
+			return "unknown tool", nil
+		}
+
+		onChunk := StreamCallback(func(chunk string) {})
+
+		_, _, err := RunAgentLoopStream(
+			context.Background(), parentProvider, "parent system",
+			[]Message{{Role: RoleUser, Content: "run subagent"}},
+			[]Tool{{Name: "spawn_agent"}},
+			parentExecutor, onChunk, onToolCall, nil,
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		// We expect:
+		// 1. Parent's spawn_agent call with agent="" (from executeOne in parent loop)
+		// 2. Child's child_tool call with agent="test-subagent" (from executeOne in child loop, via wrapped callback)
+		if len(recorded) < 2 {
+			t.Fatalf("expected at least 2 callback invocations, got %d: %+v", len(recorded), recorded)
+		}
+
+		// Find the spawn_agent callback (agent should be empty — it's the parent agent's call)
+		var foundSpawnAgent, foundChildTool bool
+		for _, r := range recorded {
+			if r.name == "spawn_agent" && r.agent == "" {
+				foundSpawnAgent = true
+			}
+			if r.name == "child_tool" && r.agent == "test-subagent" {
+				foundChildTool = true
+			}
+		}
+
+		if !foundSpawnAgent {
+			t.Error("expected callback for spawn_agent with empty agent label")
+		}
+		if !foundChildTool {
+			t.Errorf("expected callback for child_tool with agent=test-subagent; recorded: %+v", recorded)
 		}
 	})
 }

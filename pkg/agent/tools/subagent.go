@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"wildgecu/pkg/provider"
 	"wildgecu/pkg/provider/tool"
@@ -90,6 +91,8 @@ func newSpawnAgentTool(defaultProvider provider.Provider, reg *tool.Registry, re
 				childOnToolCall = func(name, args, _ string) {
 					parentCb(name, args, agentName)
 				}
+			} else {
+				slog.Warn("spawn_agent: no parent callback in context, subagent tool calls will not be surfaced", "agent", agentName)
 			}
 
 			messages := []provider.Message{
