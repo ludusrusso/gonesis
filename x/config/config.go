@@ -64,18 +64,21 @@ const defaultConfig = `# wildgecu configuration
 providers:
   gemini:
     type: gemini
-    api_key: ""
+    api_key: env(GEMINI_API_KEY)
     # google_search: true
 
   # openai:
   #   type: openai
-  #   api_key: ""
+  #   api_key: env(OPENAI_API_KEY)
 
   # ollama:
-  #   type: openai
-  #   base_url: "http://localhost:11434/v1"
+  #   type: ollama
 
-default_model: gemini/gemini-3-flash-preview
+# models:
+#   fast: gemini/gemini-2.0-flash
+#   smart: gemini/gemini-2.5-pro
+
+default_model: gemini/gemini-2.5-flash
 `
 
 // EnsureConfigFile creates a default wildgecu.yaml in ~/.wildgecu/ if one does
