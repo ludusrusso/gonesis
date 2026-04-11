@@ -374,6 +374,75 @@ func TestSpawnAgent(t *testing.T) {
 		}
 	})
 
+	t.Run("propagates tool call callback with agent=subagent", func(t *testing.T) {
+		// Create a provider that makes a tool call, then returns text.
+		var callNum int
+		childProvider := &funcProvider{fn: func(_ context.Context, params *provider.GenerateParams) (*provider.Response, error) {
+			callNum++
+			if callNum == 1 {
+				return &provider.Response{
+					Message: provider.Message{
+						Role: provider.RoleModel,
+						ToolCalls: []provider.ToolCall{
+							{Name: "dummy_tool", ID: "t1", Args: map[string]any{"key": "val"}},
+						},
+					},
+				}, nil
+			}
+			return &provider.Response{
+				Message: provider.Message{Role: provider.RoleModel, Content: "done"},
+			}, nil
+		}}
+
+		dummyTool := tool.NewTool("dummy_tool", "A dummy tool",
+			func(ctx context.Context, in struct {
+				Key string `json:"key"`
+			}) (struct{}, error) {
+				return struct{}{}, nil
+			},
+		)
+		reg := tool.NewRegistry(dummyTool)
+		tl := SubagentTools(childProvider, reg, nil)[0]
+
+		// Set parent callback in context.
+		type callRecord struct {
+			name, args, agent string
+		}
+		var recorded []callRecord
+		ctx := provider.WithToolCallCallback(context.Background(), func(name, args, agent string) {
+			recorded = append(recorded, callRecord{name, args, agent})
+		})
+
+		_, err := tl.Execute(ctx, map[string]any{"prompt": "do it"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(recorded) != 1 {
+			t.Fatalf("expected 1 callback invocation, got %d", len(recorded))
+		}
+		if recorded[0].name != "dummy_tool" {
+			t.Errorf("name = %q, want %q", recorded[0].name, "dummy_tool")
+		}
+		if recorded[0].agent != "subagent" {
+			t.Errorf("agent = %q, want %q", recorded[0].agent, "subagent")
+		}
+	})
+
+	t.Run("runs without error when no parent callback in context", func(t *testing.T) {
+		mp := newMockProvider("ok")
+		reg := tool.NewRegistry()
+		tl := SubagentTools(mp, reg, nil)[0]
+
+		// Use bare context without any callback set.
+		_, err := tl.Execute(context.Background(), map[string]any{
+			"prompt": "hello",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
 	t.Run("parallel spawn_agent calls execute concurrently", func(t *testing.T) {
 		const agentDelay = 100 * time.Millisecond
 

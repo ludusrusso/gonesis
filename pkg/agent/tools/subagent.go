@@ -78,13 +78,22 @@ func newSpawnAgentTool(defaultProvider provider.Provider, reg *tool.Registry, re
 				}
 			}
 
+			// Extract parent's onToolCall from context and wrap it to
+			// inject "subagent" as the agent label.
+			var childOnToolCall provider.ToolCallCallback
+			if parentCb := provider.GetToolCallCallback(ctx); parentCb != nil {
+				childOnToolCall = func(name, args, _ string) {
+					parentCb(name, args, "subagent")
+				}
+			}
+
 			messages := []provider.Message{
 				{Role: provider.RoleUser, Content: in.Prompt},
 			}
 
 			msgs, _, err := provider.RunAgentLoop(
 				ctx, p, systemPrompt, messages, childToolDefs,
-				executor, nil, nil,
+				executor, childOnToolCall, nil,
 			)
 			if err != nil {
 				return spawnAgentOutput{}, err
