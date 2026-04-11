@@ -289,6 +289,101 @@ telegram_token: my-plain-token
 		}
 	})
 
+	t.Run("SugarDefaultsApplied", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  mistral:
+    type: mistral
+    api_key: mk
+  regolo:
+    type: regolo
+    api_key: rk
+  ollama:
+    type: ollama
+default_model: mistral/mistral-large
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		tests := []struct {
+			name    string
+			wantURL string
+		}{
+			{"mistral", "https://api.mistral.ai/v1"},
+			{"regolo", "https://api.regolo.ai/v1"},
+			{"ollama", "http://localhost:11434/v1"},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				p := cfg.Providers[tt.name]
+				if p.BaseURL != tt.wantURL {
+					t.Errorf("%s.BaseURL = %q, want %q", tt.name, p.BaseURL, tt.wantURL)
+				}
+			})
+		}
+	})
+
+	t.Run("ExplicitBaseURLOverridesSugar", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  custom-regolo:
+    type: regolo
+    api_key: rk
+    base_url: https://custom.regolo.endpoint/v1
+default_model: custom-regolo/some-model
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		p := cfg.Providers["custom-regolo"]
+		if p.BaseURL != "https://custom.regolo.endpoint/v1" {
+			t.Errorf("BaseURL = %q, want %q", p.BaseURL, "https://custom.regolo.endpoint/v1")
+		}
+	})
+
+	t.Run("SugarDoesNotAffectOpenAIOrGemini", func(t *testing.T) {
+		dir := t.TempDir()
+		cfgPath := filepath.Join(dir, "wildgecu.yaml")
+		data := []byte(`providers:
+  openai:
+    type: openai
+    api_key: ok
+  gemini:
+    type: gemini
+    api_key: gk
+default_model: openai/gpt-4
+`)
+		if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		cfg, err := Load(cfgPath)
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+
+		if cfg.Providers["openai"].BaseURL != "" {
+			t.Errorf("openai.BaseURL = %q, want empty", cfg.Providers["openai"].BaseURL)
+		}
+		if cfg.Providers["gemini"].BaseURL != "" {
+			t.Errorf("gemini.BaseURL = %q, want empty", cfg.Providers["gemini"].BaseURL)
+		}
+	})
+
 	t.Run("UnknownFieldsIgnored", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, "wildgecu.yaml")

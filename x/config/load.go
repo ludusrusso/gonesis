@@ -42,6 +42,8 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	cfg.applyProviderDefaults()
+
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
@@ -85,6 +87,23 @@ func (c *Config) resolveEnv() error {
 	}
 
 	return nil
+}
+
+var knownBaseURLs = map[string]string{
+	"mistral": "https://api.mistral.ai/v1",
+	"regolo":  "https://api.regolo.ai/v1",
+	"ollama":  "http://localhost:11434/v1",
+}
+
+func (c *Config) applyProviderDefaults() {
+	for name, p := range c.Providers {
+		if p.BaseURL == "" {
+			if defaultURL, ok := knownBaseURLs[p.Type]; ok {
+				p.BaseURL = defaultURL
+				c.Providers[name] = p
+			}
+		}
+	}
 }
 
 func (c *Config) validate() error {
