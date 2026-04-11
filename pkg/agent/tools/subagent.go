@@ -28,7 +28,8 @@ type ProviderResolver func(ctx context.Context, model string) (provider.Provider
 
 // SubagentTools returns the spawn_agent tool. The tool uses defaultProvider for
 // LLM calls unless a model override is given and resolve is non-nil.
-// reg is the parent's tool registry; the child inherits all tools except spawn_agent.
+// reg is the parent's tool registry; by default the child inherits all parent tools
+// except spawn_agent, but the caller can pass an explicit tools list to restrict the set.
 func SubagentTools(defaultProvider provider.Provider, reg *tool.Registry, resolve ProviderResolver) []tool.Tool {
 	return []tool.Tool{newSpawnAgentTool(defaultProvider, reg, resolve)}
 }
