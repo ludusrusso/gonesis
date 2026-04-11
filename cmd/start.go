@@ -63,10 +63,17 @@ func runDaemon() error {
 	handler := slog.NewJSONHandler(f, &slog.HandlerOptions{Level: slog.LevelInfo})
 	slog.SetDefault(slog.New(handler))
 
+	var providerNames []string
+	for name := range appConfig.Providers {
+		providerNames = append(providerNames, name)
+	}
+
 	return daemon.Run(context.Background(), daemon.Config{
 		Version:       Version,
 		DefaultModel:  appConfig.DefaultModel,
 		TelegramToken: appConfig.TelegramToken,
 		Container:     newContainer(),
+		ProviderNames: providerNames,
+		ModelAliases:  appConfig.Models,
 	})
 }

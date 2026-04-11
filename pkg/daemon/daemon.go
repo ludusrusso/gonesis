@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"wildgecu/pkg/agent"
+	"wildgecu/pkg/agent/tools"
 	"wildgecu/pkg/chat/telegram"
 	"wildgecu/pkg/command"
 	"wildgecu/pkg/cron"
@@ -28,6 +29,8 @@ type Config struct {
 	DefaultModel  string
 	TelegramToken string
 	Container     *container.Container
+	ProviderNames []string          // names of configured providers
+	ModelAliases  map[string]string // alias → "provider/model"
 }
 
 // Run is the main daemon loop. It manages the PID file, socket server, watchdog,
@@ -305,6 +308,11 @@ func initSessionManager(ctx context.Context, cfg Config, h *home.Home, tgAuth *a
 		Workspace:       h, // daemon uses global home as workspace
 		TelegramAuth:    tgAuth,
 		ResolveProvider: cfg.Container.Get,
+		ModelsInfo: &tools.ModelInfo{
+			DefaultModel: cfg.DefaultModel,
+			Providers:    cfg.ProviderNames,
+			Models:       cfg.ModelAliases,
+		},
 	}
 
 	return NewSessionManager(ctx, agentCfg, cfg.Container)

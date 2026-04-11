@@ -21,6 +21,7 @@ type Config struct {
 	Workspace       *home.Home
 	TelegramAuth    *auth.Store             // nil when Telegram auth is not configured
 	ResolveProvider tools.ProviderResolver  // nil when model override is not supported
+	ModelsInfo      *tools.ModelInfo         // nil when model info is not available
 	Debug           bool
 }
 
@@ -57,6 +58,7 @@ func Prepare(ctx context.Context, cfg Config) (*session.Config, *debug.Logger, e
 	registry.Add(tools.InformTools())
 	registry.Add(tools.TelegramTools(cfg.TelegramAuth))
 	registry.Add(tools.SubagentTools(cfg.Provider, registry, cfg.ResolveProvider))
+	registry.Add(tools.ModelTools(cfg.ModelsInfo))
 	systemPrompt := BuildSystemPrompt(cfg.Workspace, soulContent, memoryContent)
 	if dbg != nil {
 		dbg.SystemPrompt(systemPrompt)
@@ -124,6 +126,7 @@ func PrepareCode(ctx context.Context, cfg Config, workDir string) (*session.Conf
 	registry.Add(tools.InformTools())
 	registry.Add(tools.TelegramTools(cfg.TelegramAuth))
 	registry.Add(tools.SubagentTools(cfg.Provider, registry, cfg.ResolveProvider))
+	registry.Add(tools.ModelTools(cfg.ModelsInfo))
 	systemPrompt := BuildCodeSystemPrompt(cfg.Workspace, soulContent, memoryContent, workDir)
 	if dbg != nil {
 		dbg.SystemPrompt(systemPrompt)
