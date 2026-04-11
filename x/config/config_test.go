@@ -61,15 +61,17 @@ func TestEnsureConfigFile(t *testing.T) {
 			t.Error("existing file should not be overwritten")
 		}
 	})
+}
 
-	t.Run("DefaultConfigIsValidYAML", func(t *testing.T) {
+func TestDefaultConfig(t *testing.T) {
+	t.Run("IsValidYAML", func(t *testing.T) {
 		var cfg Config
 		if err := yaml.Unmarshal([]byte(defaultConfig), &cfg); err != nil {
 			t.Fatalf("default config is not valid YAML: %v", err)
 		}
 	})
 
-	t.Run("DefaultConfigHasProviders", func(t *testing.T) {
+	t.Run("HasProviders", func(t *testing.T) {
 		var cfg Config
 		if err := yaml.Unmarshal([]byte(defaultConfig), &cfg); err != nil {
 			t.Fatal(err)
@@ -79,7 +81,7 @@ func TestEnsureConfigFile(t *testing.T) {
 		}
 	})
 
-	t.Run("DefaultConfigHasDefaultModel", func(t *testing.T) {
+	t.Run("HasDefaultModel", func(t *testing.T) {
 		var cfg Config
 		if err := yaml.Unmarshal([]byte(defaultConfig), &cfg); err != nil {
 			t.Fatal(err)
@@ -89,7 +91,7 @@ func TestEnsureConfigFile(t *testing.T) {
 		}
 	})
 
-	t.Run("DefaultConfigDefaultModelReferencesKnownProvider", func(t *testing.T) {
+	t.Run("DefaultModelReferencesKnownProvider", func(t *testing.T) {
 		var cfg Config
 		if err := yaml.Unmarshal([]byte(defaultConfig), &cfg); err != nil {
 			t.Fatal(err)
@@ -103,13 +105,13 @@ func TestEnsureConfigFile(t *testing.T) {
 		}
 	})
 
-	t.Run("DefaultConfigShowsEnvSyntax", func(t *testing.T) {
+	t.Run("ShowsEnvSyntax", func(t *testing.T) {
 		if !strings.Contains(defaultConfig, "env(") {
 			t.Error("default config should demonstrate env() syntax for secrets")
 		}
 	})
 
-	t.Run("DefaultConfigShowsModelsSection", func(t *testing.T) {
+	t.Run("ShowsModelsSection", func(t *testing.T) {
 		if !strings.Contains(defaultConfig, "models:") {
 			t.Error("default config should include a models section (commented or not)")
 		}
