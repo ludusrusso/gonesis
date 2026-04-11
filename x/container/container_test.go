@@ -20,7 +20,7 @@ func (f *fakeProvider) Generate(_ context.Context, _ *provider.GenerateParams) (
 func TestContainer(t *testing.T) {
 	t.Run("GetReturnsProviderForValidModel", func(t *testing.T) {
 		var called int
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			called++
 			return &fakeProvider{id: name}, nil
 		}
@@ -52,7 +52,7 @@ func TestContainer(t *testing.T) {
 
 	t.Run("GetCachesPerProviderModelPair", func(t *testing.T) {
 		var calls atomic.Int32
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			calls.Add(1)
 			return &fakeProvider{id: name}, nil
 		}
@@ -79,7 +79,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("GetErrorsOnUnknownProvider", func(t *testing.T) {
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			return &fakeProvider{id: name}, nil
 		}
 
@@ -98,7 +98,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("GetErrorsOnInvalidFormat", func(t *testing.T) {
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			return &fakeProvider{id: name}, nil
 		}
 
@@ -118,7 +118,7 @@ func TestContainer(t *testing.T) {
 
 	t.Run("DifferentModelsFromSameProviderCreateSeparateInstances", func(t *testing.T) {
 		var calls atomic.Int32
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			calls.Add(1)
 			return &fakeProvider{id: name}, nil
 		}
@@ -146,7 +146,7 @@ func TestContainer(t *testing.T) {
 
 	t.Run("ConcurrentGetIsThreadSafe", func(t *testing.T) {
 		var calls atomic.Int32
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			calls.Add(1)
 			return &fakeProvider{id: name}, nil
 		}
@@ -183,7 +183,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("GetResolvesAlias", func(t *testing.T) {
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			return &fakeProvider{id: name}, nil
 		}
 
@@ -210,7 +210,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("GetDirectStillWorksWithModelsMap", func(t *testing.T) {
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			return &fakeProvider{id: name}, nil
 		}
 
@@ -238,7 +238,7 @@ func TestContainer(t *testing.T) {
 	})
 
 	t.Run("GetErrorsOnUnknownAlias", func(t *testing.T) {
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			return &fakeProvider{id: name}, nil
 		}
 
@@ -259,7 +259,7 @@ func TestContainer(t *testing.T) {
 
 	t.Run("AliasCachesLikeDirectReference", func(t *testing.T) {
 		var calls atomic.Int32
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			calls.Add(1)
 			return &fakeProvider{id: name}, nil
 		}
@@ -288,9 +288,60 @@ func TestContainer(t *testing.T) {
 		}
 	})
 
+	t.Run("GetPassesModelNameToFactory", func(t *testing.T) {
+		var gotModel string
+		factory := func(_ context.Context, _ string, model string, pc config.ProviderConfig) (provider.Provider, error) {
+			gotModel = model
+			return &fakeProvider{id: model}, nil
+		}
+
+		cfg := &config.Config{
+			Providers: map[string]config.ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			DefaultModel: "gemini/gemini-2.5-flash",
+		}
+
+		c := New(cfg, factory)
+		_, err := c.Get(context.Background(), "gemini/gemini-2.5-flash")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if gotModel != "gemini-2.5-flash" {
+			t.Errorf("factory received model = %q, want %q", gotModel, "gemini-2.5-flash")
+		}
+	})
+
+	t.Run("GetPassesModelNameFromAlias", func(t *testing.T) {
+		var gotModel string
+		factory := func(_ context.Context, _ string, model string, pc config.ProviderConfig) (provider.Provider, error) {
+			gotModel = model
+			return &fakeProvider{id: model}, nil
+		}
+
+		cfg := &config.Config{
+			Providers: map[string]config.ProviderConfig{
+				"gemini": {Type: "gemini", APIKey: "key"},
+			},
+			Models: map[string]string{
+				"smart": "gemini/gemini-3-flash-preview",
+			},
+			DefaultModel: "smart",
+		}
+
+		c := New(cfg, factory)
+		_, err := c.Get(context.Background(), "smart")
+		if err != nil {
+			t.Fatalf("Get() error = %v", err)
+		}
+		if gotModel != "gemini-3-flash-preview" {
+			t.Errorf("factory received model = %q, want %q", gotModel, "gemini-3-flash-preview")
+		}
+	})
+
 	t.Run("UnusedProvidersNotInstantiated", func(t *testing.T) {
 		var calls atomic.Int32
-		factory := func(_ context.Context, name string, pc config.ProviderConfig) (provider.Provider, error) {
+		factory := func(_ context.Context, name string, _ string, pc config.ProviderConfig) (provider.Provider, error) {
 			calls.Add(1)
 			return &fakeProvider{id: name}, nil
 		}

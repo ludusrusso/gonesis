@@ -16,7 +16,7 @@ func TestDefaultFactory(t *testing.T) {
 			APIKey:  "mk",
 			BaseURL: "https://api.mistral.ai/v1",
 		}
-		p, err := DefaultFactory(ctx, "mistral", pc)
+		p, err := DefaultFactory(ctx, "mistral", "mistral-large", pc)
 		if err != nil {
 			t.Fatalf("DefaultFactory() error = %v", err)
 		}
@@ -31,7 +31,7 @@ func TestDefaultFactory(t *testing.T) {
 			APIKey:  "rk",
 			BaseURL: "https://api.regolo.ai/v1",
 		}
-		p, err := DefaultFactory(ctx, "regolo", pc)
+		p, err := DefaultFactory(ctx, "regolo", "regolo-model", pc)
 		if err != nil {
 			t.Fatalf("DefaultFactory() error = %v", err)
 		}
@@ -45,7 +45,7 @@ func TestDefaultFactory(t *testing.T) {
 			Type:    "ollama",
 			BaseURL: "http://localhost:11434/v1",
 		}
-		p, err := DefaultFactory(ctx, "ollama", pc)
+		p, err := DefaultFactory(ctx, "ollama", "llama3", pc)
 		if err != nil {
 			t.Fatalf("DefaultFactory() error = %v", err)
 		}
@@ -56,7 +56,7 @@ func TestDefaultFactory(t *testing.T) {
 
 	t.Run("UnknownTypeReturnsError", func(t *testing.T) {
 		pc := config.ProviderConfig{Type: "unknown"}
-		_, err := DefaultFactory(ctx, "x", pc)
+		_, err := DefaultFactory(ctx, "x", "model", pc)
 		if err == nil {
 			t.Fatal("DefaultFactory() expected error for unknown type, got nil")
 		}

@@ -11,8 +11,8 @@ import (
 	"wildgecu/x/config"
 )
 
-// Factory creates a provider.Provider from a provider name and its config.
-type Factory func(ctx context.Context, name string, pc config.ProviderConfig) (provider.Provider, error)
+// Factory creates a provider.Provider from a provider name, model name, and its config.
+type Factory func(ctx context.Context, name string, model string, pc config.ProviderConfig) (provider.Provider, error)
 
 // Container lazily creates and caches providers on demand.
 type Container struct {
@@ -65,7 +65,8 @@ func (c *Container) Get(ctx context.Context, model string) (provider.Provider, e
 		return nil, fmt.Errorf("container: unknown provider %q", providerName)
 	}
 
-	p, err := c.factory(ctx, providerName, pc)
+	modelName := parts[1]
+	p, err := c.factory(ctx, providerName, modelName, pc)
 	if err != nil {
 		return nil, fmt.Errorf("container: create provider %q: %w", providerName, err)
 	}
