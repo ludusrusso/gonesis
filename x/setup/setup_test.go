@@ -121,26 +121,132 @@ func TestRun(t *testing.T) {
 		}
 	})
 
-	t.Run("UnsupportedProviderThenOllama", func(t *testing.T) {
-		homeDir := t.TempDir()
-		// First pick OpenAI (2, unsupported), then Ollama (3), accept defaults.
-		stdin := strings.NewReader("2\n3\n\n\n")
-		var stdout bytes.Buffer
+	// Table-driven tests for API-key-based providers (OpenAI, Mistral, Regolo).
+	apiKeyProviders := []struct {
+		name         string
+		choice       string // provider menu number
+		providerType string
+		apiKey       string
+		envVar       string
+		baseURL      string // expected default; empty means no base URL prompt
+		model        string // expected default model
+	}{
+		{"OpenAI", "2", "openai", "oai-key-123", "OPENAI_API_KEY", "", "gpt-4o"},
+		{"Mistral", "4", "mistral", "mistral-key-123", "MISTRAL_API_KEY", "https://api.mistral.ai/v1", "mistral-large-latest"},
+		{"Regolo", "5", "regolo", "regolo-key-123", "REGOLO_API_KEY", "https://api.regolo.ai/v1", "deepseek-r1"},
+	}
 
-		result, err := Run(homeDir, stdin, &stdout)
-		if err != nil {
-			t.Fatalf("Run() error = %v", err)
-		}
+	for _, tc := range apiKeyProviders {
+		t.Run(tc.name+"WithDefaults", func(t *testing.T) {
+			homeDir := t.TempDir()
+			// Build stdin: provider choice, API key, [accept default base URL], accept default model.
+			input := tc.choice + "\n" + tc.apiKey + "\n"
+			if tc.baseURL != "" {
+				input += "\n" // accept default base URL
+			}
+			input += "\n" // accept default model
+			var stdout bytes.Buffer
 
-		if result.ProviderType != "ollama" {
-			t.Errorf("ProviderType = %q, want %q", result.ProviderType, "ollama")
-		}
+			nopValidator := func(_, _, _ string) error { return nil }
+			result, err := Run(homeDir, strings.NewReader(input), &stdout, WithValidator(nopValidator))
+			if err != nil {
+				t.Fatalf("Run() error = %v", err)
+			}
 
-		output := stdout.String()
-		if !strings.Contains(output, "not yet supported") {
-			t.Error("expected 'not yet supported' message for OpenAI")
-		}
-	})
+			if result.ProviderType != tc.providerType {
+				t.Errorf("ProviderType = %q, want %q", result.ProviderType, tc.providerType)
+			}
+			if result.BaseURL != tc.baseURL {
+				t.Errorf("BaseURL = %q, want %q", result.BaseURL, tc.baseURL)
+			}
+			if result.Model != tc.model {
+				t.Errorf("Model = %q, want %q", result.Model, tc.model)
+			}
+			if result.EnvFilePath == "" {
+				t.Error("EnvFilePath should not be empty")
+			}
+
+			// Verify .env file content.
+			envMap, err := godotenv.Read(filepath.Join(homeDir, ".env"))
+			if err != nil {
+				t.Fatalf("read .env: %v", err)
+			}
+			if envMap[tc.envVar] != tc.apiKey {
+				t.Errorf("%s = %q, want %q", tc.envVar, envMap[tc.envVar], tc.apiKey)
+			}
+
+			// Verify YAML contains env() reference, not raw key.
+			data, err := os.ReadFile(filepath.Join(homeDir, "wildgecu.yaml"))
+			if err != nil {
+				t.Fatalf("read config: %v", err)
+			}
+			envRef := "env(" + tc.envVar + ")"
+			if !strings.Contains(string(data), envRef) {
+				t.Errorf("YAML should contain %s, got:\n%s", envRef, data)
+			}
+			if strings.Contains(string(data), tc.apiKey) {
+				t.Error("YAML should not contain raw API key")
+			}
+
+			// Verify config loads with env var set.
+			t.Setenv(tc.envVar, tc.apiKey)
+			cfg := loadTestConfig(t, homeDir)
+			wantModel := tc.providerType + "/" + tc.model
+			if cfg.Models["base"] != wantModel {
+				t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], wantModel)
+			}
+			p, ok := cfg.Providers[tc.providerType]
+			if !ok {
+				t.Fatalf("provider %q not found in config", tc.providerType)
+			}
+			if p.Type != tc.providerType {
+				t.Errorf("Type = %q, want %q", p.Type, tc.providerType)
+			}
+			if p.APIKey != tc.apiKey {
+				t.Errorf("APIKey = %q, want %q (resolved)", p.APIKey, tc.apiKey)
+			}
+			if p.BaseURL != tc.baseURL {
+				t.Errorf("BaseURL = %q, want %q", p.BaseURL, tc.baseURL)
+			}
+		})
+	}
+
+	// Table-driven tests for custom base URL override (Mistral, Regolo).
+	baseURLProviders := []struct {
+		name         string
+		choice       string
+		providerType string
+		apiKey       string
+		envVar       string
+		customURL    string
+	}{
+		{"Mistral", "4", "mistral", "mistral-key", "MISTRAL_API_KEY", "https://custom.mistral.ai/v1"},
+		{"Regolo", "5", "regolo", "regolo-key", "REGOLO_API_KEY", "https://custom.regolo.ai/v1"},
+	}
+
+	for _, tc := range baseURLProviders {
+		t.Run(tc.name+"WithCustomBaseURL", func(t *testing.T) {
+			homeDir := t.TempDir()
+			input := tc.choice + "\n" + tc.apiKey + "\n" + tc.customURL + "\n\n"
+			var stdout bytes.Buffer
+
+			nopValidator := func(_, _, _ string) error { return nil }
+			result, err := Run(homeDir, strings.NewReader(input), &stdout, WithValidator(nopValidator))
+			if err != nil {
+				t.Fatalf("Run() error = %v", err)
+			}
+
+			if result.BaseURL != tc.customURL {
+				t.Errorf("BaseURL = %q, want %q", result.BaseURL, tc.customURL)
+			}
+
+			t.Setenv(tc.envVar, tc.apiKey)
+			cfg := loadTestConfig(t, homeDir)
+			if cfg.Providers[tc.providerType].BaseURL != tc.customURL {
+				t.Errorf("config BaseURL = %q, want %q", cfg.Providers[tc.providerType].BaseURL, tc.customURL)
+			}
+		})
+	}
 
 	t.Run("InvalidProviderChoiceThenOllama", func(t *testing.T) {
 		homeDir := t.TempDir()
