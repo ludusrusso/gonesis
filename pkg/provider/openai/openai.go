@@ -7,7 +7,7 @@ import (
 
 	oai "github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // Provider implements provider.Provider and provider.StreamProvider

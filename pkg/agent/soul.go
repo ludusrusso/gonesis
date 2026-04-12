@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/home"
 )
 
 // LoadSoul reads SOUL.md from the home directory. Returns (content, err).

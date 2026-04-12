@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
 )
 
 // Autocomplete filters and navigates a list of slash commands based on user input.

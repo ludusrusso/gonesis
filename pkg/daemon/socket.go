@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/command"
 )
 
 // CommandHandler processes a daemon request and returns a response.

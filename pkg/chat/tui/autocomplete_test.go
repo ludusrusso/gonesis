@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
 )
 
 var testCommands = []daemon.CommandInfo{

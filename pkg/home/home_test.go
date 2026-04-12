@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"wildgecu/x/file"
+	"github.com/ludusrusso/wildgecu/x/file"
 )
 
 func TestNew(t *testing.T) {

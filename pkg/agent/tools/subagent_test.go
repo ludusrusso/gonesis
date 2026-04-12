@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // mockProvider records Generate calls and returns a canned response.

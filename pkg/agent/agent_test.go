@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"wildgecu/pkg/home"
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 func TestLoadSoul(t *testing.T) {

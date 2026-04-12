@@ -3,8 +3,8 @@ package session
 import (
 	"context"
 
-	"wildgecu/x/debug"
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/x/debug"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // Config holds everything needed to run a conversational loop.

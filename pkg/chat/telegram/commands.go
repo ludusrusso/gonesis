@@ -3,7 +3,7 @@ package telegram
 import (
 	"sort"
 
-	"wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/command"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )

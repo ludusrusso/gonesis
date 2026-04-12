@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"time"
 
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // ExecTools returns execution tools (bash, node) bound to workDir.

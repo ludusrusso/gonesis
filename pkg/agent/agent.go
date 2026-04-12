@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"wildgecu/pkg/agent/tools"
-	"wildgecu/pkg/home"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/tool"
-	"wildgecu/pkg/session"
-	"wildgecu/pkg/telegram/auth"
-	"wildgecu/x/debug"
+	"github.com/ludusrusso/wildgecu/pkg/agent/tools"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/pkg/telegram/auth"
+	"github.com/ludusrusso/wildgecu/x/debug"
 )
 
 // Config holds the configuration needed to run the agent.

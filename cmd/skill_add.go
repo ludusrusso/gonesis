@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"wildgecu/pkg/skill"
+	"github.com/ludusrusso/wildgecu/pkg/skill"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"

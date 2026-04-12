@@ -4,7 +4,7 @@ import (
 	"context"
 	"slices"
 
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // ModelInfo holds model configuration visible to the agent.

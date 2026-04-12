@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/command"
 )
 
 // ChatRequest is a client→server message on a NDJSON chat connection.

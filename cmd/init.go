@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"wildgecu/pkg/agent"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/pkg/agent"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/session"
 
 	"github.com/spf13/cobra"
 )

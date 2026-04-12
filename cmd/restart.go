@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
 
 	"github.com/spf13/cobra"
 )

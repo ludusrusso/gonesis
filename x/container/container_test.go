@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 // fakeProvider is a minimal provider for testing.

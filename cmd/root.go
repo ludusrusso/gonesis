@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wildgecu/pkg/home"
-	"wildgecu/x/config"
-	"wildgecu/x/container"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/container"
 
 	"github.com/spf13/cobra"
 )

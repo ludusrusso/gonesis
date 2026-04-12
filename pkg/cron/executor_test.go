@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // mockProvider returns a fixed response for testing.

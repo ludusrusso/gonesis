@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // Registry collects tools and provides a single ToolExecutor.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"google.golang.org/genai"
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // Provider implements provider.Provider using the Google Gemini API.

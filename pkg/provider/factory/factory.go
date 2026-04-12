@@ -5,9 +5,9 @@ import (
 	"context"
 	"fmt"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/gemini"
-	"wildgecu/pkg/provider/openai"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/gemini"
+	"github.com/ludusrusso/wildgecu/pkg/provider/openai"
 )
 
 // Config holds the parameters needed to create any supported provider.

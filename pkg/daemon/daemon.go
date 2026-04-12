@@ -12,15 +12,15 @@ import (
 	"syscall"
 	"time"
 
-	"wildgecu/pkg/agent"
-	"wildgecu/pkg/agent/tools"
-	"wildgecu/pkg/chat/telegram"
-	"wildgecu/pkg/command"
-	"wildgecu/pkg/cron"
-	"wildgecu/pkg/home"
-	"wildgecu/pkg/telegram/auth"
-	"wildgecu/x/config"
-	"wildgecu/x/container"
+	"github.com/ludusrusso/wildgecu/pkg/agent"
+	"github.com/ludusrusso/wildgecu/pkg/agent/tools"
+	"github.com/ludusrusso/wildgecu/pkg/chat/telegram"
+	"github.com/ludusrusso/wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/cron"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/telegram/auth"
+	"github.com/ludusrusso/wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/container"
 )
 
 // Config holds daemon configuration.

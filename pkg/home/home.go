@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"wildgecu/x/file"
+	"github.com/ludusrusso/wildgecu/x/file"
 )
 
 // Home represents a wildgecu home directory with typed accessors.

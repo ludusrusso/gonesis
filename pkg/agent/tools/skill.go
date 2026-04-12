@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"wildgecu/pkg/provider/tool"
-	"wildgecu/pkg/skill"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/skill"
 )
 
 // SkillTools returns the list_skills and read_skill tools bound to skillsDir.

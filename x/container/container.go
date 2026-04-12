@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 // Factory creates a provider.Provider from a provider name, model name, and its config.

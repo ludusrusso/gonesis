@@ -1,4 +1,4 @@
-module wildgecu
+module github.com/ludusrusso/wildgecu
 
 go 1.26.1
 

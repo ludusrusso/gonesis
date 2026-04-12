@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 func TestInformTools(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"wildgecu/pkg/skill"
+	"github.com/ludusrusso/wildgecu/pkg/skill"
 )
 
 // stubCommand is a simple Command implementation for testing.

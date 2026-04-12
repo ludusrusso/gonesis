@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"wildgecu/pkg/cron"
-	"wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/cron"
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // --- Schema generation ---

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"wildgecu/x/debug"
+	"github.com/ludusrusso/wildgecu/x/debug"
 )
 
 func noopLogger() *debug.Logger {

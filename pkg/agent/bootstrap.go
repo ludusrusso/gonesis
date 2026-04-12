@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"wildgecu/pkg/agent/tools"
-	"wildgecu/pkg/home"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/tool"
-	"wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/pkg/agent/tools"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/session"
 )
 
 // WriteSoulInput is the input for the write_soul tool.

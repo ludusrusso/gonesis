@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"wildgecu/pkg/skill"
+	"github.com/ludusrusso/wildgecu/pkg/skill"
 
 	"github.com/spf13/cobra"
 )

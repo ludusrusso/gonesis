@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"wildgecu/pkg/chat/tui"
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/pkg/chat/tui"
+	"github.com/ludusrusso/wildgecu/x/config"
 
 	"github.com/spf13/cobra"
 )

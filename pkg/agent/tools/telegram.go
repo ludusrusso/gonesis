@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"wildgecu/pkg/provider/tool"
-	"wildgecu/pkg/telegram/auth"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/telegram/auth"
 )
 
 // TelegramTools returns tools for managing Telegram users.

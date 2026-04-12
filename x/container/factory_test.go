@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 func TestDefaultFactory(t *testing.T) {

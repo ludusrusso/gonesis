@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"wildgecu/pkg/agent"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/session"
-	"wildgecu/x/container"
+	"github.com/ludusrusso/wildgecu/pkg/agent"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/x/container"
 
 	"github.com/google/uuid"
 )

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // helper to execute a tool and unmarshal the JSON result into dst.

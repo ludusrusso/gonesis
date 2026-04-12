@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 // Request is a command sent from the CLI to the daemon.

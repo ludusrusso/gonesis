@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"wildgecu/pkg/command"
-	"wildgecu/pkg/skill"
+	"github.com/ludusrusso/wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/skill"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )

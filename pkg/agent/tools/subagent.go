@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 const spawnAgentName = "spawn_agent"

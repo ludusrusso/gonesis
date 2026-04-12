@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"wildgecu/pkg/command"
-	"wildgecu/pkg/telegram/auth"
+	"github.com/ludusrusso/wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/telegram/auth"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )

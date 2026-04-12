@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // ExecutorConfig holds the dependencies for executing a cron job.

@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
 )
 
 const (

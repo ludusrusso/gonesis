@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"wildgecu/pkg/home"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // WriteMemoryInput is the input for the write_memory tool.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"syscall"
 
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 // WritePID writes the current process PID to ~/.wildgecu/wildgecu.pid.

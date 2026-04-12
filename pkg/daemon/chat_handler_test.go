@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"wildgecu/pkg/command"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/session"
 )
 
 // fakeSkillCommand implements command.Command and command.SkillRunner for testing.

@@ -1,6 +1,6 @@
 package tui
 
-import "wildgecu/pkg/daemon"
+import "github.com/ludusrusso/wildgecu/pkg/daemon"
 
 // streamChunkMsg carries a partial text chunk from the streaming response.
 type streamChunkMsg struct {

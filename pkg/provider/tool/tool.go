@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
 )
 
 // Tool is the interface that all typed tools implement.

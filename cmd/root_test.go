@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 func TestInitConfig(t *testing.T) {

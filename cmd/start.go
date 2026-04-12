@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
-	"wildgecu/pkg/daemon"
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/x/config"
 
 	"github.com/spf13/cobra"
 )

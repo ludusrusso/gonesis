@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/x/config"
 
 	"github.com/spf13/cobra"
 )

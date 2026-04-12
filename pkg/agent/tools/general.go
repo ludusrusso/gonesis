@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // FetchURLTool is exported for use outside suites (e.g. bootstrap).

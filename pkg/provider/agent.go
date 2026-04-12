@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"wildgecu/x/debug"
+	"github.com/ludusrusso/wildgecu/x/debug"
 )
 
 // ErrDone is a sentinel error returned by a ToolExecutor to signal

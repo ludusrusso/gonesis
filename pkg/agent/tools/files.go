@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // FileTools returns file-operation tools bound to workDir.

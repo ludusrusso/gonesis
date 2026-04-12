@@ -3,7 +3,7 @@ package command
 import (
 	"context"
 
-	"wildgecu/pkg/skill"
+	"github.com/ludusrusso/wildgecu/pkg/skill"
 )
 
 // Command is the interface for a slash command.

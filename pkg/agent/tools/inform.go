@@ -3,8 +3,8 @@ package tools
 import (
 	"context"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/tool"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/tool"
 )
 
 // InformTools returns the inform_user tool.

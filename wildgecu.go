@@ -1,5 +1,5 @@
 package main
 
-import "wildgecu/cmd"
+import "github.com/ludusrusso/wildgecu/cmd"
 
 func main() { cmd.Execute() }

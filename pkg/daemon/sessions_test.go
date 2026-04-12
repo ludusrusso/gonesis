@@ -5,10 +5,10 @@ import (
 	"sync"
 	"testing"
 
-	"wildgecu/pkg/agent"
-	"wildgecu/pkg/home"
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/pkg/agent"
+	"github.com/ludusrusso/wildgecu/pkg/home"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/session"
 )
 
 // capturingProvider records the last system prompt and user message it received.

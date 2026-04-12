@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"wildgecu/pkg/provider"
-	"wildgecu/pkg/provider/gemini"
-	"wildgecu/pkg/provider/openai"
-	"wildgecu/x/config"
+	"github.com/ludusrusso/wildgecu/pkg/provider"
+	"github.com/ludusrusso/wildgecu/pkg/provider/gemini"
+	"github.com/ludusrusso/wildgecu/pkg/provider/openai"
+	"github.com/ludusrusso/wildgecu/x/config"
 )
 
 // DefaultFactory creates a provider.Provider from a ProviderConfig using the
