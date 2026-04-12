@@ -42,11 +42,11 @@ type provider struct {
 }
 
 var providers = []provider{
-	{Name: "Gemini", Type: "gemini", APIKeyEnv: "GEMINI_API_KEY", Supported: true, Models: []string{"gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"}},                    //nolint:gosec // env var name, not a credential
-	{Name: "OpenAI", Type: "openai", APIKeyEnv: "OPENAI_API_KEY", Supported: true, Models: []string{"gpt-4o", "gpt-4o-mini", "o3-mini"}},                                         //nolint:gosec // env var name, not a credential
-	{Name: "Ollama", Type: "ollama", BaseURL: config.KnownBaseURLs["ollama"], Supported: true, Models: []string{"llama3.3", "qwen3", "gemma3", "phi4", "deepseek-r1"}},
-	{Name: "Mistral", Type: "mistral", APIKeyEnv: "MISTRAL_API_KEY", BaseURL: config.KnownBaseURLs["mistral"], Supported: true, Models: []string{"mistral-large-latest", "mistral-small-latest"}},   //nolint:gosec // env var name, not a credential
-	{Name: "Regolo", Type: "regolo", APIKeyEnv: "REGOLO_API_KEY", BaseURL: config.KnownBaseURLs["regolo"], Supported: true, Models: []string{"deepseek-r1", "llama-4-maverick"}},                   //nolint:gosec // env var name, not a credential
+	{Name: "Gemini", Type: "gemini", APIKeyEnv: "GEMINI_API_KEY", Supported: true, Models: []string{"gemini-3.1-flash-preview", "gemini-3.1-flash-lite-preview"}},                                                    //nolint:gosec // env var name, not a credential
+	{Name: "OpenAI", Type: "openai", APIKeyEnv: "OPENAI_API_KEY", Supported: true, Models: []string{"gpt-5.4", "o3", "o4-mini", "gpt-5.4-mini"}},                                                                    //nolint:gosec // env var name, not a credential
+	{Name: "Ollama", Type: "ollama", BaseURL: config.KnownBaseURLs["ollama"], Supported: true, Models: []string{"qwen3-coder-next", "devstral-small-2", "qwen3-coder", "gemma4", "llama4"}},
+	{Name: "Mistral", Type: "mistral", APIKeyEnv: "MISTRAL_API_KEY", BaseURL: config.KnownBaseURLs["mistral"], Supported: true, Models: []string{"mistral-small-latest", "devstral-2512", "mistral-large-latest"}},   //nolint:gosec // env var name, not a credential
+	{Name: "Regolo", Type: "regolo", APIKeyEnv: "REGOLO_API_KEY", BaseURL: config.KnownBaseURLs["regolo"], Supported: true, Models: []string{"Qwen3.5-122B", "Mistral-Small-4-119B", "Qwen3-Coder-Next"}},           //nolint:gosec // env var name, not a credential
 }
 
 // Result holds the outcome of a setup run for display purposes.

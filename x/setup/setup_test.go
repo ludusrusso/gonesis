@@ -30,8 +30,8 @@ func TestRun(t *testing.T) {
 		if result.BaseURL != "http://localhost:11434/v1" {
 			t.Errorf("BaseURL = %q, want %q", result.BaseURL, "http://localhost:11434/v1")
 		}
-		if result.Model != "llama3.3" {
-			t.Errorf("Model = %q, want %q", result.Model, "llama3.3")
+		if result.Model != "qwen3-coder-next" {
+			t.Errorf("Model = %q, want %q", result.Model, "qwen3-coder-next")
 		}
 		if result.EnvFilePath != "" {
 			t.Errorf("EnvFilePath = %q, want empty (Ollama has no API key)", result.EnvFilePath)
@@ -42,8 +42,8 @@ func TestRun(t *testing.T) {
 		if cfg.DefaultModel != "base" {
 			t.Errorf("DefaultModel = %q, want %q", cfg.DefaultModel, "base")
 		}
-		if cfg.Models["base"] != "ollama/llama3.3" {
-			t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], "ollama/llama3.3")
+		if cfg.Models["base"] != "ollama/qwen3-coder-next" {
+			t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], "ollama/qwen3-coder-next")
 		}
 
 		p, ok := cfg.Providers["ollama"]
@@ -81,7 +81,7 @@ func TestRun(t *testing.T) {
 
 	t.Run("OllamaWithModelByNumber", func(t *testing.T) {
 		homeDir := t.TempDir()
-		// Select Ollama (3), accept default base URL, pick model #3 (gemma3).
+		// Select Ollama (3), accept default base URL, pick model #3 (qwen3-coder).
 		stdin := strings.NewReader("3\n\n3\n")
 		var stdout bytes.Buffer
 
@@ -90,13 +90,13 @@ func TestRun(t *testing.T) {
 			t.Fatalf("Run() error = %v", err)
 		}
 
-		if result.Model != "gemma3" {
-			t.Errorf("Model = %q, want %q", result.Model, "gemma3")
+		if result.Model != "qwen3-coder" {
+			t.Errorf("Model = %q, want %q", result.Model, "qwen3-coder")
 		}
 
 		cfg := loadTestConfig(t, homeDir)
-		if cfg.Models["base"] != "ollama/gemma3" {
-			t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], "ollama/gemma3")
+		if cfg.Models["base"] != "ollama/qwen3-coder" {
+			t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], "ollama/qwen3-coder")
 		}
 	})
 
@@ -131,9 +131,9 @@ func TestRun(t *testing.T) {
 		baseURL      string // expected default; empty means no base URL prompt
 		model        string // expected default model
 	}{
-		{"OpenAI", "2", "openai", "oai-key-123", "OPENAI_API_KEY", "", "gpt-4o"},
-		{"Mistral", "4", "mistral", "mistral-key-123", "MISTRAL_API_KEY", "https://api.mistral.ai/v1", "mistral-large-latest"},
-		{"Regolo", "5", "regolo", "regolo-key-123", "REGOLO_API_KEY", "https://api.regolo.ai/v1", "deepseek-r1"},
+		{"OpenAI", "2", "openai", "oai-key-123", "OPENAI_API_KEY", "", "gpt-5.4"},
+		{"Mistral", "4", "mistral", "mistral-key-123", "MISTRAL_API_KEY", "https://api.mistral.ai/v1", "mistral-small-latest"},
+		{"Regolo", "5", "regolo", "regolo-key-123", "REGOLO_API_KEY", "https://api.regolo.ai/v1", "Qwen3.5-122B"},
 	}
 
 	for _, tc := range apiKeyProviders {
@@ -334,8 +334,8 @@ func TestRun(t *testing.T) {
 		if result.ProviderType != "gemini" {
 			t.Errorf("ProviderType = %q, want %q", result.ProviderType, "gemini")
 		}
-		if result.Model != "gemini-2.5-flash" {
-			t.Errorf("Model = %q, want %q", result.Model, "gemini-2.5-flash")
+		if result.Model != "gemini-3.1-flash-preview" {
+			t.Errorf("Model = %q, want %q", result.Model, "gemini-3.1-flash-preview")
 		}
 		if result.EnvFilePath == "" {
 			t.Error("EnvFilePath should not be empty for Gemini")
@@ -368,8 +368,8 @@ func TestRun(t *testing.T) {
 		if cfg.DefaultModel != "base" {
 			t.Errorf("DefaultModel = %q, want %q", cfg.DefaultModel, "base")
 		}
-		if cfg.Models["base"] != "gemini/gemini-2.5-flash" {
-			t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], "gemini/gemini-2.5-flash")
+		if cfg.Models["base"] != "gemini/gemini-3.1-flash-preview" {
+			t.Errorf("Models[base] = %q, want %q", cfg.Models["base"], "gemini/gemini-3.1-flash-preview")
 		}
 
 		p, ok := cfg.Providers["gemini"]
@@ -462,8 +462,8 @@ func TestRun(t *testing.T) {
 			t.Errorf("GEMINI_API_KEY = %q, want %q", envMap["GEMINI_API_KEY"], "good-key")
 		}
 
-		if result.Model != "gemini-2.5-flash" {
-			t.Errorf("Model = %q, want %q", result.Model, "gemini-2.5-flash")
+		if result.Model != "gemini-3.1-flash-preview" {
+			t.Errorf("Model = %q, want %q", result.Model, "gemini-3.1-flash-preview")
 		}
 	})
 
@@ -514,13 +514,13 @@ func TestFormatSummary(t *testing.T) {
 			ProviderName: "Ollama",
 			ProviderType: "ollama",
 			BaseURL:      "http://localhost:11434/v1",
-			Model:        "llama3.3",
+			Model:        "qwen3-coder-next",
 			ConfigPath:   "/home/user/.wildgecu/wildgecu.yaml",
 		}
 
 		summary := FormatSummary(r)
 
-		for _, want := range []string{"Ollama", "http://localhost:11434/v1", "llama3.3", "ollama/llama3.3", "/home/user/.wildgecu/wildgecu.yaml"} {
+		for _, want := range []string{"Ollama", "http://localhost:11434/v1", "qwen3-coder-next", "ollama/qwen3-coder-next", "/home/user/.wildgecu/wildgecu.yaml"} {
 			if !strings.Contains(summary, want) {
 				t.Errorf("summary missing %q:\n%s", want, summary)
 			}
@@ -531,7 +531,7 @@ func TestFormatSummary(t *testing.T) {
 		r := &Result{
 			ProviderName: "Gemini",
 			ProviderType: "gemini",
-			Model:        "gemini-2.5-flash",
+			Model:        "gemini-3.1-flash-preview",
 			ConfigPath:   "/tmp/wildgecu.yaml",
 		}
 
@@ -545,7 +545,7 @@ func TestFormatSummary(t *testing.T) {
 		r := &Result{
 			ProviderName: "Gemini",
 			ProviderType: "gemini",
-			Model:        "gemini-2.5-flash",
+			Model:        "gemini-3.1-flash-preview",
 			ConfigPath:   "/home/user/.wildgecu/wildgecu.yaml",
 			EnvFilePath:  "/home/user/.wildgecu/.env",
 		}
