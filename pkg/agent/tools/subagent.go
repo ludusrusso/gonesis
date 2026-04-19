@@ -61,9 +61,14 @@ func newSpawnAgentTool(defaultProvider provider.Provider, reg *tool.Registry, re
 				if in.Tools != nil {
 					childReg = reg.Subset(in.Tools)
 				} else {
+					excluded := map[string]bool{
+						spawnAgentName: true,
+						TodoCreateName: true,
+						TodoUpdateName: true,
+					}
 					var childNames []string
 					for _, t := range reg.Tools() {
-						if t.Name != spawnAgentName {
+						if !excluded[t.Name] {
 							childNames = append(childNames, t.Name)
 						}
 					}

@@ -18,6 +18,14 @@ type Config struct {
 	WelcomeText     string
 	Tools           []provider.Tool
 	InitialMessages []provider.Message
+
+	// RequestReminder, when set, returns a string appended to the tail user
+	// message content for the duration of the outgoing provider call. The
+	// appended text is stripped before the returned messages slice is handed
+	// back to the caller, so it never lands in the session's canonical log.
+	// Used to inject session-scoped <system-reminder> blocks without
+	// invalidating prompt cache.
+	RequestReminder func() string
 }
 
 // RunTurn appends a user message to the conversation and runs one agent loop.
@@ -30,7 +38,10 @@ func RunTurn(ctx context.Context, cfg *Config, messages []provider.Message, user
 			Content: userInput,
 		})
 	}
-	return provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, cfg.OnToolCall, cfg.Debug)
+	transient, tailIdx := applyReminder(messages, cfg)
+	updated, resp, err := provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, transient, cfg.Tools, cfg.Executor, cfg.OnToolCall, cfg.Debug)
+	stripReminder(updated, messages, tailIdx)
+	return updated, resp, err
 }
 
 // RunInitialTurn runs the agent loop on pre-seeded messages without adding a user message.
@@ -49,10 +60,50 @@ func RunTurnStream(ctx context.Context, cfg *Config, messages []provider.Message
 			Content: userInput,
 		})
 	}
-	return provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, onChunk, cfg.OnToolCall, cfg.Debug)
+	transient, tailIdx := applyReminder(messages, cfg)
+	updated, resp, err := provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, transient, cfg.Tools, cfg.Executor, onChunk, cfg.OnToolCall, cfg.Debug)
+	stripReminder(updated, messages, tailIdx)
+	return updated, resp, err
 }
 
 // RunInitialTurnStream is like RunInitialTurn but streams text chunks via onChunk.
 func RunInitialTurnStream(ctx context.Context, cfg *Config, messages []provider.Message, onChunk provider.StreamCallback) ([]provider.Message, *provider.Response, error) {
 	return provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, onChunk, cfg.OnToolCall, cfg.Debug)
+}
+
+// applyReminder returns a transient messages slice that carries the reminder
+// appended to the tail user message, plus the index of that user message. If
+// no reminder is active, it returns the input slice unchanged and -1.
+func applyReminder(messages []provider.Message, cfg *Config) ([]provider.Message, int) {
+	if cfg.RequestReminder == nil {
+		return messages, -1
+	}
+	reminder := cfg.RequestReminder()
+	if reminder == "" {
+		return messages, -1
+	}
+	tail := -1
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == provider.RoleUser {
+			tail = i
+			break
+		}
+	}
+	if tail < 0 {
+		return messages, -1
+	}
+	transient := make([]provider.Message, len(messages))
+	copy(transient, messages)
+	transient[tail].Content = transient[tail].Content + "\n\n" + reminder
+	return transient, tail
+}
+
+// stripReminder restores the tail user message in updated to its pre-reminder
+// form. This guarantees that the caller's persisted log never contains the
+// reminder text.
+func stripReminder(updated, original []provider.Message, tailIdx int) {
+	if tailIdx < 0 || tailIdx >= len(updated) || tailIdx >= len(original) {
+		return
+	}
+	updated[tailIdx] = original[tailIdx]
 }

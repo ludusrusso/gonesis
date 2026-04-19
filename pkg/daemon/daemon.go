@@ -21,6 +21,7 @@ import (
 	"github.com/ludusrusso/wildgecu/pkg/cron"
 	"github.com/ludusrusso/wildgecu/pkg/home"
 	"github.com/ludusrusso/wildgecu/pkg/telegram/auth"
+	"github.com/ludusrusso/wildgecu/pkg/todo"
 	"github.com/ludusrusso/wildgecu/x/config"
 	"github.com/ludusrusso/wildgecu/x/container"
 )
@@ -125,6 +126,14 @@ func Run(ctx context.Context, cfg Config) error {
 		}, nil
 	})
 	cmdRegistry.Register(statusCmd)
+	todosCmd := command.NewTodosCommand(func(_ context.Context, id string) (*todo.List, error) {
+		sess := sm.Get(id)
+		if sess == nil {
+			return nil, fmt.Errorf("session not found: %s", id)
+		}
+		return sess.Todos, nil
+	})
+	cmdRegistry.Register(todosCmd)
 	srv.SetCommands(cmdRegistry)
 
 	// --- Cron scheduler (declared early so status handler can access it) ---
