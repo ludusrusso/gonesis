@@ -28,6 +28,20 @@ func sockPath() (string, error) {
 	return config.GlobalFilePath("wildgecu.sock")
 }
 
+// DialSocket opens a raw connection to the daemon Unix socket. Used by
+// streaming protocols (e.g. cron-test) that need to read/write NDJSON
+// directly rather than the single-request SendCommand flow.
+func DialSocket() (net.Conn, error) {
+	path, err := sockPath()
+	if err != nil {
+		return nil, err
+	}
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+		return nil, fmt.Errorf("daemon not running (socket not found)")
+	}
+	return net.DialTimeout("unix", path, 5*time.Second)
+}
+
 // SendCommand sends a command to the running daemon and returns the response.
 func SendCommand(cmd string, args map[string]any) (*Response, error) {
 	path, err := sockPath()
