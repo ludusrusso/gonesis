@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+
+	"github.com/ludusrusso/wildgecu/pkg/todo"
 )
 
 // Event is a server→client message over the NDJSON socket.
@@ -17,6 +19,7 @@ type Event struct {
 	Agent     string        `json:"agent,omitempty"`
 	Message   string        `json:"message,omitempty"`
 	Commands  []CommandInfo `json:"commands,omitempty"`
+	Todos     []todo.Item   `json:"todos,omitempty"`
 }
 
 // request is a client→server message over the NDJSON socket.

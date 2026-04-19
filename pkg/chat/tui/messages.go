@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/ludusrusso/wildgecu/pkg/daemon"
+import (
+	"github.com/ludusrusso/wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/todo"
+)
 
 // streamChunkMsg carries a partial text chunk from the streaming response.
 type streamChunkMsg struct {
@@ -44,4 +47,9 @@ type informMsg struct {
 // commandsLoadedMsg carries the command list fetched from the daemon.
 type commandsLoadedMsg struct {
 	commands []daemon.CommandInfo
+}
+
+// todoSnapshotMsg carries the current todo-list snapshot for the sticky region.
+type todoSnapshotMsg struct {
+	items []todo.Item
 }
