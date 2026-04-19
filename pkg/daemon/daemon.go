@@ -219,6 +219,8 @@ func Run(ctx context.Context, cfg Config) error {
 			}
 			return &Response{OK: true, Payload: "cron jobs reloaded"}, nil
 		})
+		srv.Handle("cron-suspend", cronSuspendHandler(ctx, h.CronsDir(), scheduler))
+		srv.Handle("cron-resume", cronResumeHandler(ctx, h.CronsDir(), scheduler))
 	} else {
 		logger.Info("cron scheduler disabled (no provider configured)")
 	}
