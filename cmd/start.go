@@ -80,6 +80,7 @@ func runDaemon() error {
 	return daemon.Run(context.Background(), daemon.Config{
 		Version:       Version,
 		DefaultModel:  appConfig.DefaultModel,
+		MemoryModel:   appConfig.MemoryModel,
 		TelegramToken: appConfig.TelegramToken,
 		Container:     newContainer(),
 		ProviderNames: providerNames,

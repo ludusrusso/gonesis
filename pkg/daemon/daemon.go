@@ -27,6 +27,7 @@ import (
 type Config struct {
 	Version       string
 	DefaultModel  string
+	MemoryModel   string // optional; alias or "provider/model" used by the memory agent. Empty = use DefaultModel.
 	TelegramToken string
 	Container     *container.Container
 	ProviderNames []string          // names of configured providers
@@ -308,6 +309,7 @@ func initSessionManager(ctx context.Context, cfg Config, h *home.Home, tgAuth *a
 		Workspace:       h, // daemon uses global home as workspace
 		TelegramAuth:    tgAuth,
 		ResolveProvider: cfg.Container.Get,
+		MemoryModel:     cfg.MemoryModel,
 		ModelsInfo: &tools.ModelInfo{
 			DefaultModel: cfg.DefaultModel,
 			Providers:    cfg.ProviderNames,

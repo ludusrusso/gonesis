@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/ludusrusso/wildgecu/pkg/agent/tools"
@@ -19,9 +20,10 @@ type Config struct {
 	Provider        provider.Provider
 	Home            *home.Home
 	Workspace       *home.Home
-	TelegramAuth    *auth.Store             // nil when Telegram auth is not configured
-	ResolveProvider tools.ProviderResolver  // nil when model override is not supported
-	ModelsInfo      *tools.ModelInfo         // nil when model info is not available
+	TelegramAuth    *auth.Store            // nil when Telegram auth is not configured
+	ResolveProvider tools.ProviderResolver // nil when model override is not supported
+	MemoryModel     string                 // optional alias/ref for the memory agent; empty = use Provider
+	ModelsInfo      *tools.ModelInfo       // nil when model info is not available
 	Debug           bool
 }
 
@@ -90,7 +92,23 @@ func Finalize(ctx context.Context, cfg Config, messages []provider.Message) erro
 	memCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	return RunMemoryAgent(memCtx, cfg.Provider, cfg.Home, messages, memoryContent)
+	p, modelLabel := resolveMemoryProvider(memCtx, cfg)
+	return RunMemoryAgent(memCtx, p, modelLabel, cfg.Home, messages, memoryContent)
+}
+
+// resolveMemoryProvider picks the provider to use for the memory agent. When
+// cfg.MemoryModel is set and a resolver is available, it resolves a dedicated
+// provider; otherwise it falls back to cfg.Provider. The returned label is a
+// human-readable tag used only for logging.
+func resolveMemoryProvider(ctx context.Context, cfg Config) (provider.Provider, string) {
+	if cfg.MemoryModel != "" && cfg.ResolveProvider != nil {
+		p, err := cfg.ResolveProvider(ctx, cfg.MemoryModel)
+		if err == nil {
+			return p, cfg.MemoryModel
+		}
+		slog.Warn("memory agent: resolve memory_model failed, falling back to default provider", "model", cfg.MemoryModel, "error", err)
+	}
+	return cfg.Provider, "default"
 }
 
 // PrepareCode sets up a code-mode session with file tools and bash running in workDir.

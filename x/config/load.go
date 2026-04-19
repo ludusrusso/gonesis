@@ -24,6 +24,7 @@ type Config struct {
 	Providers     map[string]ProviderConfig `yaml:"providers"`
 	Models        map[string]string         `yaml:"models"`
 	DefaultModel  string                    `yaml:"default_model"`
+	MemoryModel   string                    `yaml:"memory_model"`
 	TelegramToken string                    `yaml:"telegram_token"`
 }
 
@@ -78,7 +79,7 @@ func (c *Config) resolveEnv() error {
 		c.Providers[name] = p
 	}
 
-	for _, field := range []*string{&c.TelegramToken, &c.DefaultModel} {
+	for _, field := range []*string{&c.TelegramToken, &c.DefaultModel, &c.MemoryModel} {
 		if resolved, envVar, isEnv := resolveEnvValue(*field); isEnv {
 			if envVar != "" {
 				return fmt.Errorf("config: env var %q is not set", envVar)
@@ -128,6 +129,12 @@ func (c *Config) validate() error {
 
 	if err := c.ValidateModelRef(c.DefaultModel); err != nil {
 		return fmt.Errorf("config: default_model: %w", err)
+	}
+
+	if c.MemoryModel != "" {
+		if err := c.ValidateModelRef(c.MemoryModel); err != nil {
+			return fmt.Errorf("config: memory_model: %w", err)
+		}
 	}
 
 	for name, p := range c.Providers {
