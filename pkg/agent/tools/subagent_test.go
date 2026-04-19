@@ -257,6 +257,25 @@ func TestSpawnAgent(t *testing.T) {
 		}
 	})
 
+	t.Run("child excludes todo tools from default tool set", func(t *testing.T) {
+		mp := newMockProvider("ok")
+		spawnTool := SubagentTools(mp, nil, nil)[0]
+		reg := tool.NewRegistry(spawnTool)
+		reg.Add(TodoTools())
+		tl := SubagentTools(mp, reg, nil)[0]
+
+		_, err := tl.Execute(context.Background(), map[string]any{"prompt": "hello"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		for _, td := range mp.calls[0].Tools {
+			if td.Name == TodoCreateName || td.Name == TodoUpdateName {
+				t.Errorf("todo tool %q should be excluded from child tool set", td.Name)
+			}
+		}
+	})
+
 	t.Run("explicit tools list restricts child tools", func(t *testing.T) {
 		mp := newMockProvider("ok")
 

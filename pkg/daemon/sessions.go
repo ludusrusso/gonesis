@@ -9,6 +9,7 @@ import (
 	"github.com/ludusrusso/wildgecu/pkg/agent"
 	"github.com/ludusrusso/wildgecu/pkg/provider"
 	"github.com/ludusrusso/wildgecu/pkg/session"
+	"github.com/ludusrusso/wildgecu/pkg/todo"
 	"github.com/ludusrusso/wildgecu/x/container"
 
 	"github.com/google/uuid"
@@ -27,6 +28,7 @@ type SessionManager struct {
 type ManagedSession struct {
 	ID          string
 	Messages    []provider.Message
+	Todos       *todo.List
 	cfg         *session.Config // per-session config (nil = use shared chatCfg)
 	welcomeText string          // per-session welcome text
 	mu          sync.Mutex
@@ -61,6 +63,7 @@ func (sm *SessionManager) Create() *ManagedSession {
 	sess := &ManagedSession{
 		ID:        uuid.New().String(),
 		Messages:  append([]provider.Message{}, sm.chatCfg.InitialMessages...),
+		Todos:     todo.New(),
 		createdAt: time.Now(),
 	}
 	sm.sessions[sess.ID] = sess
@@ -87,6 +90,7 @@ func (sm *SessionManager) CreateCode(workDir string) (*ManagedSession, error) {
 		cfg:         codeCfg,
 		welcomeText: codeCfg.WelcomeText,
 		createdAt:   time.Now(),
+		Todos:       todo.New(),
 	}
 	sm.sessions[sess.ID] = sess
 	return sess, nil
@@ -112,6 +116,7 @@ func (sm *SessionManager) CreateWithModel(model string) (*ManagedSession, error)
 		cfg:         chatCfg,
 		welcomeText: chatCfg.WelcomeText,
 		createdAt:   time.Now(),
+		Todos:       todo.New(),
 	}
 	sm.sessions[sess.ID] = sess
 	return sess, nil
@@ -137,6 +142,7 @@ func (sm *SessionManager) CreateCodeWithModel(workDir, model string) (*ManagedSe
 		cfg:         codeCfg,
 		welcomeText: codeCfg.WelcomeText,
 		createdAt:   time.Now(),
+		Todos:       todo.New(),
 	}
 	sm.sessions[sess.ID] = sess
 	return sess, nil
@@ -261,6 +267,11 @@ func (sm *SessionManager) runTurnInternal(ctx context.Context, id, input, extraS
 	}
 	if onToolCall != nil {
 		cfg.OnToolCall = provider.ToolCallCallback(onToolCall)
+	}
+	if sess.Todos != nil {
+		todos := sess.Todos
+		cfg.RequestReminder = func() string { return todos.RenderSystemReminder() }
+		ctx = todo.WithList(ctx, todos)
 	}
 
 	chunkCb := func(chunk string) {
