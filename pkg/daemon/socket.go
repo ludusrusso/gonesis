@@ -16,16 +16,23 @@ import (
 // CommandHandler processes a daemon request and returns a response.
 type CommandHandler func(*Request) (*Response, error)
 
+// StreamingHandler takes ownership of an accepted connection plus the first
+// JSON message that was consumed for protocol detection. It is responsible
+// for all subsequent reads and writes until it returns. Used for long-lived
+// NDJSON flows that don't fit the single-request CommandHandler shape.
+type StreamingHandler func(conn net.Conn, raw json.RawMessage)
+
 // SocketServer listens on a Unix domain socket and dispatches commands.
 type SocketServer struct {
-	listener net.Listener
-	handlers map[string]CommandHandler
-	sessions *SessionManager
-	commands *command.Registry
-	logger   *slog.Logger
-	path     string
-	ctx      context.Context
-	wg       sync.WaitGroup
+	listener  net.Listener
+	handlers  map[string]CommandHandler
+	streaming map[string]StreamingHandler
+	sessions  *SessionManager
+	commands  *command.Registry
+	logger    *slog.Logger
+	path      string
+	ctx       context.Context
+	wg        sync.WaitGroup
 }
 
 // NewSocketServer creates and starts listening on the Unix socket.
@@ -48,10 +55,11 @@ func NewSocketServer(logger *slog.Logger) (*SocketServer, error) {
 	}
 
 	return &SocketServer{
-		path:     path,
-		listener: ln,
-		handlers: make(map[string]CommandHandler),
-		logger:   logger,
+		path:      path,
+		listener:  ln,
+		handlers:  make(map[string]CommandHandler),
+		streaming: make(map[string]StreamingHandler),
+		logger:    logger,
 	}, nil
 }
 
@@ -68,6 +76,13 @@ func (s *SocketServer) SetCommands(r *command.Registry) {
 // Handle registers a handler for the given command name.
 func (s *SocketServer) Handle(cmd string, h CommandHandler) {
 	s.handlers[cmd] = h
+}
+
+// HandleStreaming registers a streaming handler keyed by the first JSON
+// message's "type" field. When the dispatcher sees that type it hands the
+// connection off to h.
+func (s *SocketServer) HandleStreaming(t string, h StreamingHandler) {
+	s.streaming[t] = h
 }
 
 // Serve accepts connections until ctx is cancelled.
@@ -125,6 +140,11 @@ func (s *SocketServer) handleConnection(_ context.Context, conn net.Conn) {
 	}
 	if err := json.Unmarshal(raw, &probe); err != nil {
 		s.logger.Error("unmarshal probe", "error", err)
+		return
+	}
+
+	if h, ok := s.streaming[probe.Type]; ok {
+		h(conn, raw)
 		return
 	}
 

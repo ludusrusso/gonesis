@@ -2,8 +2,10 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -222,6 +224,15 @@ func Run(ctx context.Context, cfg Config) error {
 		srv.Handle("cron-suspend", cronSuspendHandler(ctx, h.CronsDir(), scheduler))
 		srv.Handle("cron-resume", cronResumeHandler(ctx, h.CronsDir(), scheduler))
 		srv.Handle("cron-list", cronListHandler(scheduler))
+
+		cronsDir := h.CronsDir()
+		runner := func(runCtx context.Context, job *cron.CronJob, opts cron.TestOptions) cron.TestResult {
+			return cron.ExecuteTest(runCtx, execCfg, job, opts)
+		}
+		srv.HandleStreaming("cron.test", func(conn net.Conn, raw json.RawMessage) {
+			defer conn.Close()
+			handleCronTestConn(ctx, conn, raw, cronsDir, runner, logger)
+		})
 	} else {
 		logger.Info("cron scheduler disabled (no provider configured)")
 	}
