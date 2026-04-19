@@ -15,7 +15,9 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/ludusrusso/wildgecu/pkg/agent/tools"
 	"github.com/ludusrusso/wildgecu/pkg/daemon"
+	"github.com/ludusrusso/wildgecu/pkg/todo"
 )
 
 const (
@@ -74,6 +76,7 @@ type Model struct {
 	codeMode       bool
 	workDir        string
 	model          string
+	todos          []todo.Item
 }
 
 // New creates a new TUI Model connected to the daemon via a daemon.Client.
@@ -134,7 +137,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		vpHeight := m.height - headerHeight - inputHeight - statusHeight - gapLines - m.acRows()
+		vpHeight := m.height - headerHeight - inputHeight - statusHeight - gapLines - m.acRows() - m.todoRows()
 		if vpHeight < 1 {
 			vpHeight = 1
 		}
@@ -241,6 +244,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if prog.p != nil {
 							prog.p.Send(informMsg{message: event.Content})
 						}
+					case "todo_snapshot":
+						if prog.p != nil {
+							prog.p.Send(todoSnapshotMsg{items: event.Todos})
+						}
 					case "done":
 						return streamDoneMsg{content: event.Content, sessionID: event.SessionID}
 					case "error":
@@ -273,10 +280,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(thinkingVerbs))))
 		m.thinkingIdx = int(n.Int64())
-		label := msg.name
-		if msg.args != "" {
-			label += "(" + msg.args + ")"
-		}
+		label := formatToolCallLabel(msg.name, msg.args)
 		if msg.agent != "" {
 			label = "[" + msg.agent + "] " + label
 		}
@@ -304,6 +308,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoBottom()
 			}
 		}
+		return m, nil
+
+	case todoSnapshotMsg:
+		m.todos = msg.items
+		m.resizeViewport()
 		return m, nil
 
 	case streamChunkMsg:
@@ -379,11 +388,105 @@ func (m *Model) resizeViewport() {
 	if !m.ready {
 		return
 	}
-	vpHeight := m.height - headerHeight - inputHeight - statusHeight - gapLines - m.acRows()
+	vpHeight := m.height - headerHeight - inputHeight - statusHeight - gapLines - m.acRows() - m.todoRows()
 	if vpHeight < 1 {
 		vpHeight = 1
 	}
 	m.viewport.Height = vpHeight
+}
+
+func (m *Model) todoRows() int {
+	return len(m.todos)
+}
+
+// renderTodos returns the sticky region's string representation, or empty
+// when there are no todos.
+func (m *Model) renderTodos() string {
+	if len(m.todos) == 0 {
+		return ""
+	}
+	lines := make([]string, len(m.todos))
+	for i, it := range m.todos {
+		lines[i] = fmt.Sprintf("%s %s", todoCheckbox(it.Status), it.Content)
+	}
+	return toolStyle.Render(strings.Join(lines, "\n"))
+}
+
+func todoCheckbox(s todo.Status) string {
+	switch s {
+	case todo.StatusCompleted:
+		return "[x]"
+	case todo.StatusInProgress:
+		return "[~]"
+	case todo.StatusCancelled:
+		return "[-]"
+	default:
+		return "[ ]"
+	}
+}
+
+// formatToolCallLabel returns a compact inline label, using specialized
+// summaries for todo tool calls instead of raw-args dumps.
+func formatToolCallLabel(name, args string) string {
+	switch name {
+	case tools.TodoCreateName:
+		return name + "(" + summarizeTodoCreate(args) + ")"
+	case tools.TodoUpdateName:
+		return name + "(" + summarizeTodoUpdate(args) + ")"
+	}
+	if args == "" {
+		return name
+	}
+	return name + "(" + args + ")"
+}
+
+// summarizeTodoCreate parses "contents: [a b c]" from provider.FormatToolArgs
+// and returns an "N items" / "1 item" summary.
+func summarizeTodoCreate(args string) string {
+	openIdx := strings.Index(args, "[")
+	closeIdx := strings.LastIndex(args, "]")
+	if openIdx < 0 || closeIdx <= openIdx {
+		return "items"
+	}
+	inner := strings.TrimSpace(args[openIdx+1 : closeIdx])
+	if inner == "" {
+		return "0 items"
+	}
+	n := len(strings.Fields(inner))
+	if n == 1 {
+		return "1 item"
+	}
+	return fmt.Sprintf("%d items", n)
+}
+
+// summarizeTodoUpdate pulls id and status out of "id: 2, status: completed, ..."
+// and renders "#2 → completed".
+func summarizeTodoUpdate(args string) string {
+	id := extractArg(args, "id")
+	status := extractArg(args, "status")
+	switch {
+	case id != "" && status != "":
+		return "#" + id + " → " + status
+	case id != "":
+		return "#" + id
+	case status != "":
+		return "→ " + status
+	default:
+		return args
+	}
+}
+
+func extractArg(args, key string) string {
+	prefix := key + ": "
+	i := strings.Index(args, prefix)
+	if i < 0 {
+		return ""
+	}
+	rest := args[i+len(prefix):]
+	if j := strings.Index(rest, ","); j >= 0 {
+		rest = rest[:j]
+	}
+	return strings.TrimSpace(rest)
 }
 
 func (m *Model) renderMarkdown(content string) string {
@@ -429,6 +532,12 @@ func (m Model) View() string {
 	// Viewport (scrollable chat).
 	b.WriteString(m.viewport.View())
 	b.WriteString("\n")
+
+	// Sticky todo region (collapses to zero height when the list is empty).
+	if rendered := m.renderTodos(); rendered != "" {
+		b.WriteString(rendered)
+		b.WriteString("\n")
+	}
 
 	// Status line or text input.
 	switch {

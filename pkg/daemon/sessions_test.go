@@ -156,7 +156,7 @@ func TestRunSkillTurnStream(t *testing.T) {
 		sm, cp := newSMWithCapture("base prompt")
 		sess := sm.Create()
 
-		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "do the thing", nil, nil, nil); err != nil {
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "do the thing", nil, nil, nil, nil); err != nil {
 			t.Fatalf("RunSkillTurnStream() error: %v", err)
 		}
 
@@ -170,7 +170,7 @@ func TestRunSkillTurnStream(t *testing.T) {
 		sm, cp := newSMWithCapture("base prompt")
 		sess := sm.Create()
 
-		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "", "do the thing", nil, nil, nil); err != nil {
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "", "do the thing", nil, nil, nil, nil); err != nil {
 			t.Fatalf("RunSkillTurnStream() error: %v", err)
 		}
 
@@ -183,7 +183,7 @@ func TestRunSkillTurnStream(t *testing.T) {
 		sm, cp := newSMWithCapture("base prompt")
 		sess := sm.Create()
 
-		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "review main.go", nil, nil, nil); err != nil {
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "review main.go", nil, nil, nil, nil); err != nil {
 			t.Fatalf("RunSkillTurnStream() error: %v", err)
 		}
 
@@ -196,10 +196,10 @@ func TestRunSkillTurnStream(t *testing.T) {
 		sm, cp := newSMWithCapture("base prompt")
 		sess := sm.Create()
 
-		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "do the thing", nil, nil, nil); err != nil {
+		if _, err := sm.RunSkillTurnStream(context.Background(), sess.ID, "skill instructions", "do the thing", nil, nil, nil, nil); err != nil {
 			t.Fatalf("RunSkillTurnStream() error: %v", err)
 		}
-		if _, err := sm.RunTurnStream(context.Background(), sess.ID, "follow up", nil, nil, nil); err != nil {
+		if _, err := sm.RunTurnStream(context.Background(), sess.ID, "follow up", nil, nil, nil, nil); err != nil {
 			t.Fatalf("RunTurnStream() error: %v", err)
 		}
 
@@ -263,7 +263,7 @@ func TestRunTurnStream(t *testing.T) {
 			mu.Unlock()
 		}
 
-		_, err := sm.RunTurnStream(context.Background(), sess.ID, "hello", nil, onToolCall, nil)
+		_, err := sm.RunTurnStream(context.Background(), sess.ID, "hello", nil, onToolCall, nil, nil)
 		if err != nil {
 			t.Fatalf("RunTurnStream error: %v", err)
 		}

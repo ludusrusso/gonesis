@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ludusrusso/wildgecu/pkg/agent"
+	"github.com/ludusrusso/wildgecu/pkg/agent/tools"
 	"github.com/ludusrusso/wildgecu/pkg/provider"
 	"github.com/ludusrusso/wildgecu/pkg/session"
 	"github.com/ludusrusso/wildgecu/pkg/todo"
@@ -220,23 +221,28 @@ type OnToolCallFunc func(name, args, agent string)
 // OnInformFunc is called when the agent sends a status message to the user.
 type OnInformFunc func(message string)
 
+// OnTodoSnapshotFunc is called after each todo_create or todo_update tool
+// executes, carrying a defensive copy of the session's current todo list.
+type OnTodoSnapshotFunc func(items []todo.Item)
+
 // RunTurnStream runs a single conversational turn with streaming callbacks.
-// It locks the session for the duration.
-func (sm *SessionManager) RunTurnStream(ctx context.Context, id, input string, onChunk OnChunkFunc, onToolCall OnToolCallFunc, onInform OnInformFunc) (string, error) {
-	return sm.runTurnInternal(ctx, id, input, "", onChunk, onToolCall, onInform)
+// It locks the session for the duration. onTodoSnapshot may be nil (Telegram
+// path doesn't subscribe to live todo updates).
+func (sm *SessionManager) RunTurnStream(ctx context.Context, id, input string, onChunk OnChunkFunc, onToolCall OnToolCallFunc, onInform OnInformFunc, onTodoSnapshot OnTodoSnapshotFunc) (string, error) {
+	return sm.runTurnInternal(ctx, id, input, "", onChunk, onToolCall, onInform, onTodoSnapshot)
 }
 
 // RunSkillTurnStream runs a streaming LLM turn with skill content injected as
 // additional system context. The skill content is appended to the session's
 // system prompt, and userInput becomes the user message.
-func (sm *SessionManager) RunSkillTurnStream(ctx context.Context, id, skillContent, userInput string, onChunk OnChunkFunc, onToolCall OnToolCallFunc, onInform OnInformFunc) (string, error) {
-	return sm.runTurnInternal(ctx, id, userInput, skillContent, onChunk, onToolCall, onInform)
+func (sm *SessionManager) RunSkillTurnStream(ctx context.Context, id, skillContent, userInput string, onChunk OnChunkFunc, onToolCall OnToolCallFunc, onInform OnInformFunc, onTodoSnapshot OnTodoSnapshotFunc) (string, error) {
+	return sm.runTurnInternal(ctx, id, userInput, skillContent, onChunk, onToolCall, onInform, onTodoSnapshot)
 }
 
 // runTurnInternal is the shared implementation for RunTurnStream and
 // RunSkillTurnStream. When extraSystem is non-empty it is appended to the
 // session's system prompt.
-func (sm *SessionManager) runTurnInternal(ctx context.Context, id, input, extraSystem string, onChunk OnChunkFunc, onToolCall OnToolCallFunc, onInform OnInformFunc) (string, error) {
+func (sm *SessionManager) runTurnInternal(ctx context.Context, id, input, extraSystem string, onChunk OnChunkFunc, onToolCall OnToolCallFunc, onInform OnInformFunc, onTodoSnapshot OnTodoSnapshotFunc) (string, error) {
 	sess := sm.Get(id)
 	if sess == nil {
 		return "", fmt.Errorf("session not found: %s", id)
@@ -272,6 +278,16 @@ func (sm *SessionManager) runTurnInternal(ctx context.Context, id, input, extraS
 		todos := sess.Todos
 		cfg.RequestReminder = func() string { return todos.RenderSystemReminder() }
 		ctx = todo.WithList(ctx, todos)
+		if onTodoSnapshot != nil && cfg.Executor != nil {
+			inner := cfg.Executor
+			cfg.Executor = func(ctx context.Context, tc provider.ToolCall) (string, error) {
+				result, err := inner(ctx, tc)
+				if tc.Name == tools.TodoCreateName || tc.Name == tools.TodoUpdateName {
+					onTodoSnapshot(todos.Snapshot())
+				}
+				return result, err
+			}
+		}
 	}
 
 	chunkCb := func(chunk string) {
@@ -310,7 +326,7 @@ func (sm *SessionManager) RunSkillTurnStreamRaw(ctx context.Context, id, skillCo
 	if onInform != nil {
 		informCb = OnInformFunc(onInform)
 	}
-	return sm.RunSkillTurnStream(ctx, id, skillContent, userInput, chunkCb, toolCb, informCb)
+	return sm.RunSkillTurnStream(ctx, id, skillContent, userInput, chunkCb, toolCb, informCb, nil)
 }
 
 // RunTurnStreamRaw is like RunTurnStream but uses plain function types instead
@@ -328,6 +344,6 @@ func (sm *SessionManager) RunTurnStreamRaw(ctx context.Context, id, input string
 	if onInform != nil {
 		informCb = OnInformFunc(onInform)
 	}
-	return sm.RunTurnStream(ctx, id, input, chunkCb, toolCb, informCb)
+	return sm.RunTurnStream(ctx, id, input, chunkCb, toolCb, informCb, nil)
 }
 

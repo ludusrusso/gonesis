@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/ludusrusso/wildgecu/pkg/command"
+	"github.com/ludusrusso/wildgecu/pkg/todo"
 )
 
 // ChatRequest is a client→server message on a NDJSON chat connection.
@@ -38,6 +39,7 @@ type ChatEvent struct {
 	Agent     string        `json:"agent,omitempty"`
 	Message   string        `json:"message,omitempty"`
 	Commands  []CommandInfo `json:"commands,omitempty"`
+	Todos     []todo.Item   `json:"todos,omitempty"`
 }
 
 // handleChatConnection processes a long-lived NDJSON chat connection.
@@ -189,7 +191,10 @@ func (s *SocketServer) handleSkillCommand(req *ChatRequest, runner command.Skill
 		send(ChatEvent{Type: "inform", Content: message})
 	}
 
-	content, err := sessions.RunSkillTurnStream(s.ctx, req.SessionID, runner.SkillContent(), req.Content, onChunk, onToolCall, onInform)
+	onTodoSnapshot := func(items []todo.Item) {
+		send(ChatEvent{Type: "todo_snapshot", Todos: items})
+	}
+	content, err := sessions.RunSkillTurnStream(s.ctx, req.SessionID, runner.SkillContent(), req.Content, onChunk, onToolCall, onInform, onTodoSnapshot)
 	if err != nil {
 		logger.Error("skill command error", "error", err)
 		send(ChatEvent{Type: "error", Message: err.Error()})
@@ -208,8 +213,11 @@ func (s *SocketServer) handleChatMessage(req *ChatRequest, send func(ChatEvent),
 	onInform := func(message string) {
 		send(ChatEvent{Type: "inform", Content: message})
 	}
+	onTodoSnapshot := func(items []todo.Item) {
+		send(ChatEvent{Type: "todo_snapshot", Todos: items})
+	}
 
-	content, err := sessions.RunTurnStream(s.ctx, req.SessionID, req.Content, onChunk, onToolCall, onInform)
+	content, err := sessions.RunTurnStream(s.ctx, req.SessionID, req.Content, onChunk, onToolCall, onInform, onTodoSnapshot)
 	if err != nil {
 		logger.Error("chat turn error", "session_id", req.SessionID, "error", err)
 		send(ChatEvent{Type: "error", Message: err.Error()})
