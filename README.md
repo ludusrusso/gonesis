@@ -6,9 +6,9 @@ An open-source, multi-provider AI agent framework written in Go.
 
 ## Why "WildGecu"?
 
-In Salento — the sun-scorched heel of Italy's boot — the gecko is everywhere. You'll find it clinging to the ancient dry stone walls (*muretti a secco*), perched on the warm tufa of baroque churches, navigating crumbling farmhouses at dusk. Locals call it *gecu*, and it has been a symbol of this land for centuries: resilient, adaptable, quietly useful.
+In Salento — the sun-scorched heel of Italy's boot — the gecko is everywhere. You'll find it clinging to the ancient dry stone walls (_muretti a secco_), perched on the warm tufa of baroque churches, navigating crumbling farmhouses at dusk. Locals call it _gecu_, and it has been a symbol of this land for centuries: resilient, adaptable, quietly useful.
 
-The Mediterranean house gecko (*Tarentola mauritanica*) — whose scientific name traces back to Taranto, the gateway to Salento — owes its remarkable abilities to a simple, elegant mechanism: millions of microscopic lamellae on its toe pads that exploit Van der Waals forces to grip any surface, at any angle, without glue or suction. It doesn't need permission to climb. It just holds on.
+The Mediterranean house gecko (_Tarentola mauritanica_) — whose scientific name traces back to Taranto, the gateway to Salento — owes its remarkable abilities to a simple, elegant mechanism: millions of microscopic lamellae on its toe pads that exploit Van der Waals forces to grip any surface, at any angle, without glue or suction. It doesn't need permission to climb. It just holds on.
 
 That's the idea behind WildGecu. An AI agent framework that attaches to any surface — Anthropic, OpenAI, Ollama, or whatever comes next — and doesn't let go. One that runs wild and free as open-source software, but is engineered to be safe, predictable, and secure by default. One that lives quietly in the background, like a gecko on a warm wall, doing its work without fuss.
 
@@ -31,6 +31,10 @@ WildGecu is a modular AI agent framework in Go. It provides a reusable foundatio
 - **Background daemon** — long-running process with health checks, IPC socket, and system service support
 
 No database required. File-based state. One binary. Your keys, your data, your gecko.
+
+## Demo
+
+[![asciicast](https://asciinema.org/a/lcVYO37eIQ7F6HmC.svg)](https://asciinema.org/a/lcVYO37eIQ7F6HmC)
 
 ## How it works
 
@@ -133,6 +137,7 @@ wildgecu init
 ```
 
 The wizard will:
+
 1. Ask you to choose a provider (Gemini, OpenAI, Ollama, Mistral, or Regolo)
 2. Prompt for your API key (if required by the provider) and validate it
 3. Let you pick a default model from a curated list or enter a custom one
@@ -216,7 +221,7 @@ providers:
     api_key: env(OPENAI_API_KEY)
 
   ollama:
-    type: ollama   # no API key needed, runs locally
+    type: ollama # no API key needed, runs locally
 
 models:
   fast: gemini/gemini-2.0-flash
@@ -329,12 +334,12 @@ The agent can delegate subtasks to **ephemeral subagents** via the `spawn_agent`
 
 The tool is available in both chat and code modes. Parameters:
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `prompt` | Yes | The user message to send to the child agent |
-| `system_prompt` | No | Custom system prompt. If omitted, uses a minimal default |
-| `model` | No | Provider/model reference (e.g., `gemini/gemini-2.0-flash`). If omitted, inherits the parent's model |
-| `tools` | No | List of tool names the child can use. If omitted, inherits all parent tools except `spawn_agent` |
+| Parameter       | Required | Description                                                                                         |
+| --------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `prompt`        | Yes      | The user message to send to the child agent                                                         |
+| `system_prompt` | No       | Custom system prompt. If omitted, uses a minimal default                                            |
+| `model`         | No       | Provider/model reference (e.g., `gemini/gemini-2.0-flash`). If omitted, inherits the parent's model |
+| `tools`         | No       | List of tool names the child can use. If omitted, inherits all parent tools except `spawn_agent`    |
 
 **Recursion prevention:** subagents cannot spawn further subagents. The `spawn_agent` tool is excluded from every child agent's tool set.
 
@@ -367,24 +372,24 @@ This allows running multiple independent instances, each with its own config, so
 
 ### Global files (`~/.wildgecu/`)
 
-| File / Directory | Purpose |
-| --- | --- |
-| `wildgecu.yaml` | Configuration (provider, API keys, model) — created on first run |
-| `.env` | Optional environment variables loaded at startup |
-| `wildgecu.pid` | Daemon PID file |
-| `wildgecu.sock` | Daemon Unix domain socket |
-| `wildgecu.log` | Daemon log file (JSON) |
-| `crons/` | Cron job definitions (markdown + YAML frontmatter) |
-| `cron-results/` | Output from executed cron jobs |
-| `skills/` | Domain-specific knowledge files |
+| File / Directory | Purpose                                                          |
+| ---------------- | ---------------------------------------------------------------- |
+| `wildgecu.yaml`  | Configuration (provider, API keys, model) — created on first run |
+| `.env`           | Optional environment variables loaded at startup                 |
+| `wildgecu.pid`   | Daemon PID file                                                  |
+| `wildgecu.sock`  | Daemon Unix domain socket                                        |
+| `wildgecu.log`   | Daemon log file (JSON)                                           |
+| `crons/`         | Cron job definitions (markdown + YAML frontmatter)               |
+| `cron-results/`  | Output from executed cron jobs                                   |
+| `skills/`        | Domain-specific knowledge files                                  |
 
 ### Project files (`.wildgecu/` in working directory)
 
-| File | Purpose |
-| --- | --- |
-| `SOUL.md` | Agent identity — created during bootstrap |
+| File        | Purpose                                         |
+| ----------- | ----------------------------------------------- |
+| `SOUL.md`   | Agent identity — created during bootstrap       |
 | `MEMORY.md` | Persistent context — curated after each session |
-| `USER.md` | Optional user preferences — create manually |
+| `USER.md`   | Optional user preferences — create manually     |
 
 Delete `SOUL.md` and run `wildgecu init` again to give your agent a new identity.
 
@@ -397,34 +402,34 @@ providers:
   gemini:
     type: gemini
     api_key: env(GEMINI_API_KEY)
-    google_search: true           # enable Gemini's Google Search grounding
+    google_search: true # enable Gemini's Google Search grounding
 
   openai:
     type: openai
     api_key: env(OPENAI_API_KEY)
 
   ollama:
-    type: ollama                  # base_url defaults to http://localhost:11434/v1
+    type: ollama # base_url defaults to http://localhost:11434/v1
 
   mistral:
-    type: mistral                 # base_url defaults to https://api.mistral.ai/v1
+    type: mistral # base_url defaults to https://api.mistral.ai/v1
     api_key: env(MISTRAL_API_KEY)
 
   regolo:
-    type: regolo                  # base_url defaults to https://api.regolo.ai/v1
+    type: regolo # base_url defaults to https://api.regolo.ai/v1
     api_key: env(REGOLO_API_KEY)
 
   custom:
     type: openai
     api_key: env(CUSTOM_API_KEY)
-    base_url: "https://my-provider.example.com/v1"  # any OpenAI-compatible endpoint
+    base_url: "https://my-provider.example.com/v1" # any OpenAI-compatible endpoint
 
 models:
   fast: gemini/gemini-2.0-flash
   smart: gemini/gemini-2.5-pro
   local: ollama/llama3
 
-default_model: gemini/gemini-2.5-flash  # or use an alias: "fast"
+default_model: gemini/gemini-2.5-flash # or use an alias: "fast"
 
 telegram_token: env(TELEGRAM_BOT_TOKEN) # optional, for the Telegram bridge
 ```
@@ -441,9 +446,9 @@ telegram_token: env(TELEGRAM_BOT_TOKEN) # optional, for the Telegram bridge
 Config values can reference environment variables using the `env(VAR_NAME)` syntax:
 
 ```yaml
-api_key: env(GEMINI_API_KEY)    # resolved from the GEMINI_API_KEY env var
-base_url: env(CUSTOM_URL)       # works for base_url too
-telegram_token: env(TG_TOKEN)   # and for telegram_token
+api_key: env(GEMINI_API_KEY) # resolved from the GEMINI_API_KEY env var
+base_url: env(CUSTOM_URL) # works for base_url too
+telegram_token: env(TG_TOKEN) # and for telegram_token
 default_model: env(DEFAULT_MODEL) # and default_model
 ```
 
@@ -466,11 +471,11 @@ TELEGRAM_BOT_TOKEN=your-bot-token
 
 Some provider types have built-in default base URLs, so you don't need to specify `base_url` for them:
 
-| Type | Default `base_url` |
-| --- | --- |
-| `ollama` | `http://localhost:11434/v1` |
+| Type      | Default `base_url`          |
+| --------- | --------------------------- |
+| `ollama`  | `http://localhost:11434/v1` |
 | `mistral` | `https://api.mistral.ai/v1` |
-| `regolo` | `https://api.regolo.ai/v1` |
+| `regolo`  | `https://api.regolo.ai/v1`  |
 
 You can always override these by setting `base_url` explicitly. The `gemini` and `openai` types use their respective SDK defaults and don't need a base URL.
 
@@ -522,13 +527,13 @@ wildgecu.go                  # Entry point → cmd.Execute()
 
 WildGecu ships with two provider implementations that cover multiple services:
 
-| Provider | Type | Package | Streaming | Tool Calling | API Key Required |
-|----------|------|---------|-----------|--------------|------------------|
-| Google Gemini | `gemini` | `pkg/provider/gemini` | Yes | Yes | Yes |
-| OpenAI | `openai` | `pkg/provider/openai` | Yes | Yes | Yes |
-| Ollama | `ollama` | `pkg/provider/openai` (shared) | Yes | Model-dependent | No |
-| Mistral | `mistral` | `pkg/provider/openai` (shared) | Yes | Yes | Yes |
-| Regolo | `regolo` | `pkg/provider/openai` (shared) | Yes | Yes | Yes |
+| Provider      | Type      | Package                        | Streaming | Tool Calling    | API Key Required |
+| ------------- | --------- | ------------------------------ | --------- | --------------- | ---------------- |
+| Google Gemini | `gemini`  | `pkg/provider/gemini`          | Yes       | Yes             | Yes              |
+| OpenAI        | `openai`  | `pkg/provider/openai`          | Yes       | Yes             | Yes              |
+| Ollama        | `ollama`  | `pkg/provider/openai` (shared) | Yes       | Model-dependent | No               |
+| Mistral       | `mistral` | `pkg/provider/openai` (shared) | Yes       | Yes             | Yes              |
+| Regolo        | `regolo`  | `pkg/provider/openai` (shared) | Yes       | Yes             | Yes              |
 
 Ollama, Mistral, and Regolo use the OpenAI-compatible implementation with their respective default base URLs. Any OpenAI-compatible endpoint can be used by setting `type: openai` with a custom `base_url`.
 
