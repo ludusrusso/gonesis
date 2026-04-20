@@ -76,13 +76,9 @@ func newSpawnAgentTool(defaultProvider provider.Provider, reg *tool.Registry, re
 				}
 			}
 
-			var childToolDefs []provider.Tool
-			var executor provider.ToolExecutor
-			if childReg != nil {
-				childToolDefs = childReg.Tools()
-				if len(childToolDefs) > 0 {
-					executor = childReg.Executor()
-				}
+			var childToolSet provider.ToolSet
+			if childReg != nil && len(childReg.Tools()) > 0 {
+				childToolSet = childReg
 			}
 
 			// Extract parent's onToolCall from context and wrap it to
@@ -105,8 +101,8 @@ func newSpawnAgentTool(defaultProvider provider.Provider, reg *tool.Registry, re
 			}
 
 			msgs, _, err := provider.RunAgentLoop(
-				ctx, p, systemPrompt, messages, childToolDefs,
-				executor, childOnToolCall, nil,
+				ctx, p, systemPrompt, messages, childToolSet,
+				childOnToolCall, nil,
 			)
 			if err != nil {
 				return spawnAgentOutput{}, err

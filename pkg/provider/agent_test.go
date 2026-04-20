@@ -40,9 +40,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "ok:" + tc.Name, nil
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		msgs, done := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
+		if done {
+			t.Fatalf("unexpected done=true")
 		}
 
 		if maxConcurrent.Load() < 2 {
@@ -80,9 +80,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return tc.Name + "_result", nil
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		msgs, done := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
+		if done {
+			t.Fatalf("unexpected done=true")
 		}
 
 		if msgs[0].Content != "slow_result" {
@@ -106,9 +106,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "ok", nil
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
-		if !errors.Is(err, ErrDone) {
-			t.Fatalf("expected ErrDone, got %v", err)
+		msgs, done := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
+		if !done {
+			t.Fatalf("expected done=true")
 		}
 
 		// All messages should still be returned
@@ -132,9 +132,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "", errors.New("something broke")
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
-		if err != nil {
-			t.Fatalf("non-sentinel errors should not propagate, got %v", err)
+		msgs, done := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
+		if done {
+			t.Fatalf("non-sentinel errors should not signal done")
 		}
 
 		if msgs[0].Content != "Error: something broke" {
@@ -157,9 +157,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "ok", nil
 		}
 
-		_, err := executeToolsParallel(context.Background(), toolCalls, executor, callback, noopLogger())
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		_, done := executeToolsParallel(context.Background(), toolCalls, executor, callback, noopLogger())
+		if done {
+			t.Fatalf("unexpected done=true")
 		}
 
 		if callbackCount.Load() != 2 {
@@ -173,9 +173,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "", nil
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), nil, executor, nil, noopLogger())
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		msgs, done := executeToolsParallel(context.Background(), nil, executor, nil, noopLogger())
+		if done {
+			t.Fatalf("unexpected done=true")
 		}
 		if len(msgs) != 0 {
 			t.Errorf("expected 0 messages, got %d", len(msgs))
@@ -191,9 +191,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "single_result", nil
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		msgs, done := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
+		if done {
+			t.Fatalf("unexpected done=true")
 		}
 		if len(msgs) != 1 {
 			t.Fatalf("expected 1 message, got %d", len(msgs))
@@ -217,9 +217,9 @@ func TestExecuteToolsParallel(t *testing.T) {
 			return "done", ErrDone
 		}
 
-		msgs, err := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
-		if !errors.Is(err, ErrDone) {
-			t.Fatalf("expected ErrDone, got %v", err)
+		msgs, done := executeToolsParallel(context.Background(), toolCalls, executor, nil, noopLogger())
+		if !done {
+			t.Fatalf("expected done=true")
 		}
 		if len(msgs) != 3 {
 			t.Fatalf("expected 3 messages, got %d", len(msgs))
@@ -301,8 +301,8 @@ func TestRunAgentLoopStream(t *testing.T) {
 		_, _, err := RunAgentLoopStream(
 			context.Background(), sp, "sys",
 			[]Message{{Role: RoleUser, Content: "hello"}},
-			[]Tool{{Name: "my_tool"}},
-			executor, onChunk, onToolCall, nil,
+			NewToolSet([]Tool{{Name: "my_tool"}}, executor),
+			onChunk, onToolCall, nil,
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -385,8 +385,8 @@ func TestRunAgentLoopStream(t *testing.T) {
 				msgs, _, err := RunAgentLoop(
 					ctx, childProvider, "child system",
 					[]Message{{Role: RoleUser, Content: "child task"}},
-					[]Tool{{Name: "child_tool"}},
-					childExecutor, childOnToolCall, nil,
+					NewToolSet([]Tool{{Name: "child_tool"}}, childExecutor),
+					childOnToolCall, nil,
 				)
 				if err != nil {
 					return "", err
@@ -406,8 +406,8 @@ func TestRunAgentLoopStream(t *testing.T) {
 		_, _, err := RunAgentLoopStream(
 			context.Background(), parentProvider, "parent system",
 			[]Message{{Role: RoleUser, Content: "run subagent"}},
-			[]Tool{{Name: "spawn_agent"}},
-			parentExecutor, onChunk, onToolCall, nil,
+			NewToolSet([]Tool{{Name: "spawn_agent"}}, parentExecutor),
+			onChunk, onToolCall, nil,
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

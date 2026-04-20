@@ -39,14 +39,14 @@ func RunTurn(ctx context.Context, cfg *Config, messages []provider.Message, user
 		})
 	}
 	transient, tailIdx := applyReminder(messages, cfg)
-	updated, resp, err := provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, transient, cfg.Tools, cfg.Executor, cfg.OnToolCall, cfg.Debug)
+	updated, resp, err := provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, transient, cfg.toolSet(), cfg.OnToolCall, cfg.Debug)
 	stripReminder(updated, messages, tailIdx)
 	return updated, resp, err
 }
 
 // RunInitialTurn runs the agent loop on pre-seeded messages without adding a user message.
 func RunInitialTurn(ctx context.Context, cfg *Config, messages []provider.Message) ([]provider.Message, *provider.Response, error) {
-	return provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, cfg.OnToolCall, cfg.Debug)
+	return provider.RunAgentLoop(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.toolSet(), cfg.OnToolCall, cfg.Debug)
 }
 
 // RunTurnStream is like RunTurn but streams text chunks via onChunk.
@@ -61,14 +61,21 @@ func RunTurnStream(ctx context.Context, cfg *Config, messages []provider.Message
 		})
 	}
 	transient, tailIdx := applyReminder(messages, cfg)
-	updated, resp, err := provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, transient, cfg.Tools, cfg.Executor, onChunk, cfg.OnToolCall, cfg.Debug)
+	updated, resp, err := provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, transient, cfg.toolSet(), onChunk, cfg.OnToolCall, cfg.Debug)
 	stripReminder(updated, messages, tailIdx)
 	return updated, resp, err
 }
 
 // RunInitialTurnStream is like RunInitialTurn but streams text chunks via onChunk.
 func RunInitialTurnStream(ctx context.Context, cfg *Config, messages []provider.Message, onChunk provider.StreamCallback) ([]provider.Message, *provider.Response, error) {
-	return provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.Tools, cfg.Executor, onChunk, cfg.OnToolCall, cfg.Debug)
+	return provider.RunAgentLoopStream(ctx, cfg.Provider, cfg.SystemPrompt, messages, cfg.toolSet(), onChunk, cfg.OnToolCall, cfg.Debug)
+}
+
+// toolSet wraps the Config's Tools+Executor as a provider.ToolSet. Built per
+// call so that a caller who swaps cfg.Executor (e.g. sessions.go wrapping it
+// for todo snapshots) still has its updated executor picked up.
+func (c *Config) toolSet() provider.ToolSet {
+	return provider.NewToolSet(c.Tools, c.Executor)
 }
 
 // applyReminder returns a transient messages slice that carries the reminder

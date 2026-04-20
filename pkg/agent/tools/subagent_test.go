@@ -629,7 +629,7 @@ func TestSpawnAgent(t *testing.T) {
 		_, _, err := provider.RunAgentLoop(
 			ctx, parent, "sys",
 			[]provider.Message{{Role: provider.RoleUser, Content: "run tasks"}},
-			reg.Tools(), reg.Executor(), onToolCall, nil,
+			reg, onToolCall, nil,
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -707,7 +707,7 @@ func TestSpawnAgent(t *testing.T) {
 		msgs, _, err := provider.RunAgentLoop(
 			context.Background(), parent, "sys",
 			[]provider.Message{{Role: provider.RoleUser, Content: "run tasks"}},
-			reg.Tools(), reg.Executor(), nil, nil,
+			reg, nil, nil,
 		)
 		elapsed := time.Since(before)
 		if err != nil {
