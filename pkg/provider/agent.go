@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -44,11 +45,11 @@ func RunAgentLoopStream(ctx context.Context, p Provider, systemPrompt string, me
 			Tools:        tools,
 		})
 
-		var fullContent string
+		var fullContent strings.Builder
 		var lastUsage Usage
 		var toolCalls []ToolCall
 		for chunk := range chunks {
-			fullContent += chunk.Content
+			fullContent.WriteString(chunk.Content)
 			if chunk.Usage.InputTokens > 0 || chunk.Usage.OutputTokens > 0 {
 				lastUsage = chunk.Usage
 			}
@@ -62,20 +63,22 @@ func RunAgentLoopStream(ctx context.Context, p Provider, systemPrompt string, me
 			return messages, nil, err
 		}
 
+		contentStr := fullContent.String()
+
 		resp := &Response{
-			Message: Message{Role: RoleModel, Content: fullContent, ToolCalls: toolCalls},
+			Message: Message{Role: RoleModel, Content: contentStr, ToolCalls: toolCalls},
 			Usage:   lastUsage,
 		}
 
 		dbg.Usage(lastUsage.InputTokens, lastUsage.OutputTokens)
 
 		if len(resp.Message.ToolCalls) == 0 {
-			dbg.ModelResponse(fullContent)
+			dbg.ModelResponse(contentStr)
 			messages = append(messages, resp.Message)
 			return messages, resp, nil
 		}
 
-		dbg.ModelResponse(fullContent)
+		dbg.ModelResponse(contentStr)
 		messages = append(messages, resp.Message)
 
 		toolMessages, done := executeToolsParallel(ctx, resp.Message.ToolCalls, execute, onToolCall, dbg)
