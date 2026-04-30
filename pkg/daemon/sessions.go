@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -25,17 +26,44 @@ type SessionManager struct {
 	mu        sync.RWMutex
 }
 
-// ManagedSession holds the state for a single chat session.
+// ManagedSession holds the state for a single chat session. Read messages and
+// todos via Messages() and Todos(); the unexported fields require mu.
 type ManagedSession struct {
-	ID          string
-	Messages    []provider.Message
-	Todos       *todo.List
+	ID string
+	// messages is append-only: a turn replaces the slice header but never
+	// mutates existing elements, so Messages() can hand out a shallow copy
+	// that is safe to read without further locking.
+	messages    []provider.Message
+	todos       *todo.List
 	cfg         *session.Config // per-session config (nil = use shared chatCfg)
 	welcomeText string          // per-session welcome text
 	mu          sync.Mutex
 	createdAt   time.Time
 	cancel      context.CancelFunc
 	cancelMu    sync.Mutex
+}
+
+// Messages returns a shallow copy of the session's conversation history.
+func (s *ManagedSession) Messages() []provider.Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.messages)
+}
+
+// Todos returns the session's todo list. The list is internally thread-safe.
+func (s *ManagedSession) Todos() *todo.List {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.todos
+}
+
+// cancelInflight cancels the current turn if one is running.
+func (s *ManagedSession) cancelInflight() {
+	s.cancelMu.Lock()
+	defer s.cancelMu.Unlock()
+	if s.cancel != nil {
+		s.cancel()
+	}
 }
 
 // NewSessionManager calls agent.Prepare to build the shared session.Config.
@@ -63,8 +91,8 @@ func (sm *SessionManager) Create() *ManagedSession {
 
 	sess := &ManagedSession{
 		ID:        uuid.New().String(),
-		Messages:  append([]provider.Message{}, sm.chatCfg.InitialMessages...),
-		Todos:     todo.New(),
+		messages:  append([]provider.Message{}, sm.chatCfg.InitialMessages...),
+		todos:     todo.New(),
 		createdAt: time.Now(),
 	}
 	sm.sessions[sess.ID] = sess
@@ -87,11 +115,11 @@ func (sm *SessionManager) CreateCode(workDir string) (*ManagedSession, error) {
 	defer sm.mu.Unlock()
 	sess := &ManagedSession{
 		ID:          uuid.New().String(),
-		Messages:    append([]provider.Message{}, codeCfg.InitialMessages...),
+		messages:    append([]provider.Message{}, codeCfg.InitialMessages...),
 		cfg:         codeCfg,
 		welcomeText: codeCfg.WelcomeText,
 		createdAt:   time.Now(),
-		Todos:       todo.New(),
+		todos:       todo.New(),
 	}
 	sm.sessions[sess.ID] = sess
 	return sess, nil
@@ -113,11 +141,11 @@ func (sm *SessionManager) CreateWithModel(model string) (*ManagedSession, error)
 	defer sm.mu.Unlock()
 	sess := &ManagedSession{
 		ID:          uuid.New().String(),
-		Messages:    append([]provider.Message{}, chatCfg.InitialMessages...),
+		messages:    append([]provider.Message{}, chatCfg.InitialMessages...),
 		cfg:         chatCfg,
 		welcomeText: chatCfg.WelcomeText,
 		createdAt:   time.Now(),
-		Todos:       todo.New(),
+		todos:       todo.New(),
 	}
 	sm.sessions[sess.ID] = sess
 	return sess, nil
@@ -139,11 +167,11 @@ func (sm *SessionManager) CreateCodeWithModel(workDir, model string) (*ManagedSe
 	defer sm.mu.Unlock()
 	sess := &ManagedSession{
 		ID:          uuid.New().String(),
-		Messages:    append([]provider.Message{}, codeCfg.InitialMessages...),
+		messages:    append([]provider.Message{}, codeCfg.InitialMessages...),
 		cfg:         codeCfg,
 		welcomeText: codeCfg.WelcomeText,
 		createdAt:   time.Now(),
-		Todos:       todo.New(),
+		todos:       todo.New(),
 	}
 	sm.sessions[sess.ID] = sess
 	return sess, nil
@@ -156,23 +184,28 @@ func (sm *SessionManager) Get(id string) *ManagedSession {
 	return sm.sessions[id]
 }
 
-// Close finalizes the session (updates memory) and removes it.
+// Close cancels any in-flight turn, finalizes the session's memory on a
+// stable view of the message history, and removes it from the manager map.
 func (sm *SessionManager) Close(ctx context.Context, id string) {
-	sm.mu.Lock()
+	sm.mu.RLock()
 	sess, ok := sm.sessions[id]
-	if ok {
-		delete(sm.sessions, id)
-	}
-	sm.mu.Unlock()
-
-	if !ok || len(sess.Messages) == 0 {
+	sm.mu.RUnlock()
+	if !ok {
 		return
 	}
 
-	// Best-effort finalize (update memory).
-	_ = agent.Finalize(ctx, sm.agentCfg, sess.Messages)
-}
+	// Cancel first so a running turn releases sess.mu.
+	sess.cancelInflight()
 
+	// Hold sess.mu across Finalize so the message slice can't change mid-call.
+	sess.mu.Lock()
+	_ = agent.Finalize(ctx, sm.agentCfg, sess.messages)
+	sess.mu.Unlock()
+
+	sm.mu.Lock()
+	delete(sm.sessions, id)
+	sm.mu.Unlock()
+}
 
 // Reset closes the given session (with finalize) and creates a fresh one.
 func (sm *SessionManager) Reset(ctx context.Context, id string) (*ManagedSession, error) {
@@ -199,11 +232,7 @@ func (sm *SessionManager) Interrupt(id string) {
 	if sess == nil {
 		return
 	}
-	sess.cancelMu.Lock()
-	defer sess.cancelMu.Unlock()
-	if sess.cancel != nil {
-		sess.cancel()
-	}
+	sess.cancelInflight()
 }
 
 // WelcomeText returns the configured welcome text.
@@ -274,8 +303,8 @@ func (sm *SessionManager) runTurnInternal(ctx context.Context, id, input, extraS
 	if onToolCall != nil {
 		cfg.OnToolCall = provider.ToolCallCallback(onToolCall)
 	}
-	if sess.Todos != nil {
-		todos := sess.Todos
+	if sess.todos != nil {
+		todos := sess.todos
 		cfg.RequestReminder = func() string { return todos.RenderSystemReminder() }
 		ctx = todo.WithList(ctx, todos)
 		if onTodoSnapshot != nil && cfg.Executor != nil {
@@ -302,12 +331,12 @@ func (sm *SessionManager) runTurnInternal(ctx context.Context, id, input, extraS
 		}
 	})
 
-	updated, resp, err := session.RunTurnStream(ctx, &cfg, sess.Messages, input, chunkCb)
+	updated, resp, err := session.RunTurnStream(ctx, &cfg, sess.messages, input, chunkCb)
 	if err != nil {
 		return "", err
 	}
 
-	sess.Messages = updated
+	sess.messages = updated
 	return resp.Message.Content, nil
 }
 
